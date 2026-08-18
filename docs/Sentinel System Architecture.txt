@@ -1,0 +1,3688 @@
+1. Overview
+
+Sentinel is an AI-assisted cybersecurity monitoring platform designed to collect system and network telemetry, identify potentially suspicious behavior, and provide explainable security findings.
+
+The platform is designed around a modular architecture so that event collection, detection, analysis, storage, and presentation can evolve independently.
+
+Sentinel's primary goal is not to automatically declare an event malicious. Instead, it combines deterministic detection logic with contextual analysis to help security teams understand what happened, why it may be suspicious, and what evidence supports the finding.
+
+The initial system will focus on a controlled development environment and will prioritize correctness, observability, explainability, and secure engineering practices over attempting to detect every possible threat.
+2. Goals
+
+    Collect and normalize security-relevant system and network events.
+
+    Detect suspicious behavior using deterministic detection rules.
+
+    Correlate related events into meaningful security findings.
+
+    Use AI to provide contextual explanations of detected findings.
+
+    Provide evidence supporting each finding rather than relying solely on an AI-generated conclusion.
+
+    Provide a web dashboard for monitoring findings and system activity.
+
+    Maintain an auditable record of detections and analysis.
+
+    Design the system with clear security boundaries and least-privilege principles.
+
+    Provide automated tests for core detection and application logic.
+
+    Document architectural and security decisions throughout development.
+
+3. Non-Goals
+
+    Sentinel is not intended to replace a production Security Information and Event Management (SIEM) platform during its initial development.
+
+    Sentinel will not attempt to guarantee detection of every attack technique.
+
+    AI will not be treated as the sole source of truth for security decisions.
+
+    Sentinel will not automatically execute potentially harmful remediation actions.
+
+    The initial version will not attempt to monitor arbitrary third-party infrastructure without explicit authorization.
+
+    Performance and scalability beyond the requirements of the initial development environment are not primary goals for the first release.
+
+4. System Architecture
+
+Sentinel follows a modular, event-driven architecture. Security-relevant telemetry enters through an ingestion layer, is normalized into a common event format, processed by deterministic detection logic, and correlated into security findings. Findings can then be enriched and explained by the AI analysis layer before being persisted and presented through the web application.
+
+The initial architecture is intentionally modular so individual components can be tested, replaced, or scaled independently.
+
+
+                ┌─────────────────────┐
+                │   System / Network  │
+                │       Events        │
+                └──────────┬──────────┘
+                           │
+                           ▼
+                ┌─────────────────────┐
+                │   Event Ingestion   │
+                │     & Validation    │
+                └──────────┬──────────┘
+                           │
+                           ▼
+                ┌─────────────────────┐
+                │ Event Normalization │
+                └──────────┬──────────┘
+                           │
+                           ▼
+                ┌─────────────────────┐
+                │   Detection Engine  │
+                │ Rules + Heuristics  │
+                └──────────┬──────────┘
+                           │
+                           ▼
+                ┌─────────────────────┐
+                │ Event Correlation   │
+                └──────────┬──────────┘
+                           │
+                           ▼
+                ┌─────────────────────┐
+                │   Finding Store     │
+                │    PostgreSQL       │
+                └──────────┬──────────┘
+                           │
+             ┌─────────────┴─────────────┐
+             │                           │
+             ▼                           ▼
+   ┌─────────────────┐         ┌─────────────────┐
+   │   AI Analysis   │         │   REST API      │
+   │  Explanation &  │         │    FastAPI      │
+   │    Enrichment   │         └────────┬────────┘
+   └────────┬────────┘                  │
+            │                           ▼
+            └──────────────────► ┌─────────────────┐
+                                 │  Next.js Web UI │
+                                 └─────────────────┘
+Core Components
+
+    Event Ingestion
+    Receives security-relevant telemetry and validates incoming events.
+
+    Event Normalization
+    Converts different event sources into a consistent internal schema.
+
+    Detection Engine
+    Evaluates normalized events against deterministic rules and heuristics.
+
+    Event Correlation
+    Connects related events to identify patterns that may not be visible from a single event.
+
+    Finding Store
+    Persists events, detections, findings, and supporting evidence.
+
+    AI Analysis
+    Provides contextual analysis and explanations based on detected findings and their evidence.
+
+    REST API
+    Provides authenticated access to Sentinel's backend capabilities.
+
+    Web Interface
+    Provides monitoring, investigation, and visualization capabilities.
+
+5. Component Responsibilities
+5.1 Event Ingestion
+
+The Event Ingestion layer is responsible for receiving security-relevant telemetry from supported sources.
+
+Responsibilities:
+
+    Accept incoming events.
+
+    Validate event structure and required fields.
+
+    Reject malformed or unsupported events.
+
+    Attach ingestion metadata.
+
+    Assign a unique event identifier.
+
+    Record ingestion timestamps.
+
+    Prevent untrusted input from directly reaching downstream components.
+
+The ingestion layer must treat all incoming telemetry as untrusted input.
+5.2 Event Normalization
+
+The normalization layer converts source-specific events into Sentinel's internal event schema.
+
+Responsibilities:
+
+    Map source fields to a common schema.
+
+    Normalize timestamps and identifiers.
+
+    Normalize event severity and categories.
+
+    Preserve relevant source information.
+
+    Handle missing or optional fields.
+
+    Produce validation errors for events that cannot be normalized safely.
+
+Normalization allows the detection engine to operate independently of individual event sources.
+5.3 Detection Engine
+
+The Detection Engine evaluates normalized events using deterministic detection rules and heuristics.
+
+Responsibilities:
+
+    Evaluate events against detection rules.
+
+    Generate detection results.
+
+    Assign severity and confidence metadata.
+
+    Record the rules responsible for a detection.
+
+    Preserve the evidence that triggered a rule.
+
+    Produce reproducible results for identical inputs.
+
+The Detection Engine should not depend on an AI model to determine whether a rule matched.
+5.4 Event Correlation
+
+The correlation layer combines related events into higher-level findings.
+
+Responsibilities:
+
+    Identify relationships between events.
+
+    Group events belonging to the same investigation.
+
+    Track temporal relationships.
+
+    Reduce duplicate findings.
+
+    Maintain references to the underlying evidence.
+
+Correlation should preserve the original events rather than replacing them with a summarized representation.
+5.5 Finding Store
+
+The Finding Store provides persistent storage for Sentinel's security data.
+
+The initial implementation will use PostgreSQL.
+
+Responsibilities:
+
+    Store normalized events.
+
+    Store detection results.
+
+    Store security findings.
+
+    Store evidence relationships.
+
+    Store AI analysis results.
+
+    Maintain timestamps and audit information.
+
+    Enforce database-level relationships and constraints where appropriate.
+
+5.6 AI Analysis
+
+The AI Analysis layer provides contextual analysis and explanations for findings generated by deterministic components.
+
+Responsibilities:
+
+    Summarize relevant evidence.
+
+    Explain why a finding may be suspicious.
+
+    Identify potentially relevant context.
+
+    Produce structured analysis.
+
+    Clearly distinguish observed evidence from model-generated interpretation.
+
+AI output must not overwrite the original evidence or deterministic detection result.
+5.7 REST API
+
+The REST API will be implemented using FastAPI.
+
+Responsibilities:
+
+    Provide authenticated access to Sentinel functionality.
+
+    Expose findings and investigation data.
+
+    Validate API input.
+
+    Enforce authorization.
+
+    Return consistent error responses.
+
+    Provide API documentation.
+
+    Prevent direct access to internal implementation details.
+
+5.8 Web Interface
+
+The web interface will be implemented using Next.js and TypeScript.
+
+Responsibilities:
+
+    Display security findings.
+
+    Provide investigation workflows.
+
+    Display supporting evidence.
+
+    Display AI-generated explanations alongside their source findings.
+
+    Provide filtering and search capabilities.
+
+    Present system health and relevant operational information.
+
+The frontend must not be treated as a security boundary. Authorization must be enforced by the backend.
+5.9 Infrastructure
+
+Docker will be used to provide reproducible development and deployment environments.
+
+Responsibilities:
+
+    Package Sentinel services consistently.
+
+    Provide isolated development services.
+
+    Define service dependencies.
+
+    Simplify local environment setup.
+
+    Support reproducible testing environments.
+
+6. Data Flow
+6.1 Event Lifecycle
+
+A security event follows this general lifecycle:
+
+    Event Source
+
+    Ingestion
+
+    Validation
+
+    Normalization
+
+    Detection
+
+    Correlation
+
+    Persistence
+
+    AI Analysis
+
+    Finding Presentation
+
+The original event data must remain traceable throughout the lifecycle.
+6.2 Event Flow
+Event Source
+     │
+     ▼
+┌───────────────┐
+│   Ingestion   │
+└───────┬───────┘
+        │
+        ▼
+┌───────────────┐
+│  Validation   │
+└───────┬───────┘
+        │
+        ▼
+┌───────────────┐
+│ Normalization │
+└───────┬───────┘
+        │
+        ▼
+┌───────────────┐
+│   Detection   │
+└───────┬───────┘
+        │
+        ▼
+┌───────────────┐
+│  Correlation  │
+└───────┬───────┘
+        │
+        ▼
+┌───────────────┐
+│   PostgreSQL  │
+└───────┬───────┘
+        │
+        ├──────────────► AI Analysis
+        │                    │
+        │                    ▼
+        │              AI Explanation
+        │
+        ▼
+┌───────────────┐
+│   FastAPI     │
+└───────┬───────┘
+        │
+        ▼
+┌───────────────┐
+│   Next.js UI  │
+└───────────────┘
+7. Security Boundaries
+
+Security is a core architectural requirement of Sentinel. The system must assume that external telemetry, API requests, and other untrusted inputs may be malformed, manipulated, or intentionally malicious.
+7.1 Trust Boundaries
+
+Sentinel contains several trust boundaries:
+
+    External Event Sources → Event Ingestion
+
+    Client → REST API
+
+    REST API → Application Services
+
+    Application Services → PostgreSQL
+
+    Application Services → AI Provider
+
+    Docker Services → Host System
+
+Data crossing a trust boundary must be validated and handled according to the trust level of its source.
+7.2 External Event Sources
+
+Events received from external sources must be treated as untrusted.
+
+Controls:
+
+    Validate event structure.
+
+    Validate data types and field lengths.
+
+    Reject malformed events.
+
+    Apply reasonable payload-size limits.
+
+    Sanitize data before displaying it in the frontend.
+
+    Prevent untrusted event content from being interpreted as executable code.
+
+7.3 API Security
+
+The FastAPI service will act as the primary security boundary for client requests.
+
+Controls:
+
+    Authentication for protected endpoints.
+
+    Authorization based on user permissions.
+
+    Request validation using typed schemas.
+
+    Rate limiting where appropriate.
+
+    Consistent error handling.
+
+    Avoid exposing internal implementation details in error responses.
+
+    HTTPS in production environments.
+
+The frontend must never be trusted to enforce authorization independently.
+7.4 Database Security
+
+PostgreSQL access must be restricted to trusted backend services.
+
+Controls:
+
+    Database credentials stored outside source code.
+
+    Environment variables or a secrets-management mechanism for credentials.
+
+    Least-privilege database accounts.
+
+    Parameterized queries or ORM-generated queries.
+
+    Database constraints for data integrity.
+
+    No direct database access from the frontend.
+
+7.5 Secrets Management
+
+Secrets must never be committed to the repository.
+
+Examples include:
+
+    Database credentials.
+
+    API keys.
+
+    Authentication secrets.
+
+    AI provider credentials.
+
+    Deployment credentials.
+
+Development environments should use environment variables or local secret files excluded by .gitignore.
+
+Production environments should use an appropriate secrets-management solution.
+7.6 AI Security
+
+The AI layer is treated as an untrusted analytical component.
+
+AI output must not automatically become a security decision.
+
+Controls:
+
+    Preserve original evidence separately from AI output.
+
+    Clearly identify AI-generated content.
+
+    Avoid sending unnecessary sensitive information to external AI providers.
+
+    Validate structured AI responses.
+
+    Handle model failures gracefully.
+
+    Prevent AI output from directly triggering privileged actions.
+
+7.7 Logging and Auditability
+
+Security-relevant actions should produce appropriate audit records.
+
+Important events may include:
+
+    Authentication events.
+
+    Authorization failures.
+
+    Detection creation.
+
+    Finding modification.
+
+    Configuration changes.
+
+    Administrative actions.
+
+    System errors.
+
+Logs must avoid unnecessarily storing sensitive information.
+7.8 Dependency Security
+
+Third-party dependencies introduce additional supply-chain risk.
+
+The project should:
+
+    Pin or constrain dependency versions where appropriate.
+
+    Regularly review dependencies for known vulnerabilities.
+
+    Remove unused dependencies.
+
+    Keep production dependencies separate from development dependencies.
+
+    Review dependency changes before merging.
+
+7.9 Container Security
+
+Docker containers should follow least-privilege principles.
+
+Where practical:
+
+    Avoid running services as root.
+
+    Use minimal base images.
+
+    Do not embed secrets in images.
+
+    Limit unnecessary exposed ports.
+
+    Keep containers isolated by function.
+
+    Regularly update base images.
+
+7.10 Security Principle
+
+The overall architecture follows:
+
+    Assume breach, minimize trust, validate at boundaries, preserve evidence, and minimize privileges.
+
+8. Technology Stack
+
+Sentinel uses a service-oriented technology stack selected to support security monitoring, typed APIs, persistent event storage, web-based investigation, automated testing, and reproducible development environments.
+8.1 Backend — Python
+
+Python is used for Sentinel's backend and security-analysis components.
+
+Reasons:
+
+    Strong ecosystem for cybersecurity, networking, data processing, and machine learning.
+
+    Suitable for implementing detection and analysis pipelines.
+
+    Large ecosystem of security-related libraries.
+
+    Clear and maintainable syntax.
+
+    Strong testing and type-checking support.
+
+Python will primarily be responsible for:
+
+    Event ingestion
+
+    Event normalization
+
+    Detection logic
+
+    Correlation
+
+    AI integration
+
+    Backend services
+
+8.2 API — FastAPI
+
+FastAPI is used to expose Sentinel's backend functionality through a REST API.
+
+Reasons:
+
+    Native Python type-hint integration.
+
+    Automatic OpenAPI documentation.
+
+    Request and response validation.
+
+    Good support for asynchronous workloads.
+
+    Clear separation between API and application logic.
+
+FastAPI will provide endpoints for:
+
+    Authentication
+
+    Events
+
+    Detections
+
+    Findings
+
+    Investigations
+
+    System health
+
+    Administrative operations
+
+8.3 Database — PostgreSQL
+
+PostgreSQL is used as Sentinel's primary relational database.
+
+Reasons:
+
+    Strong data integrity guarantees.
+
+    Mature transaction support.
+
+    Relational modeling is appropriate for relationships between events, detections, findings, users, and evidence.
+
+    JSON/JSONB support allows storage of source-specific event data.
+
+    Strong indexing and querying capabilities.
+
+PostgreSQL will store:
+
+    Normalized events
+
+    Detection results
+
+    Findings
+
+    Evidence relationships
+
+    AI analysis
+
+    Users and authorization data
+
+    Audit records
+
+8.4 Frontend — TypeScript + Next.js
+
+The Sentinel web interface uses TypeScript and Next.js.
+
+Reasons:
+
+    Type safety across frontend code.
+
+    Strong React ecosystem.
+
+    Component-based UI architecture.
+
+    Suitable for dashboards and investigation workflows.
+
+    Server-side capabilities where appropriate.
+
+The frontend will provide:
+
+    Security dashboards
+
+    Finding lists
+
+    Finding details
+
+    Event investigation
+
+    Search and filtering
+
+    System status
+
+    Authentication interfaces
+
+8.5 Containerization — Docker
+
+Docker is used to create reproducible development and deployment environments.
+
+Initial services may include:
+
+    Sentinel API
+
+    PostgreSQL
+
+    Frontend
+
+    Supporting services where required
+
+Docker Compose will initially be used for local multi-service development.
+8.6 Testing
+
+Testing will be implemented at multiple levels.
+Unit Tests
+
+Used for:
+
+    Detection rules
+
+    Event normalization
+
+    Validation
+
+    Correlation logic
+
+    Utility functions
+
+Integration Tests
+
+Used for:
+
+    API/database interactions
+
+    Event ingestion pipelines
+
+    Detection persistence
+
+    Authentication flows
+
+End-to-End Tests
+
+Used for:
+
+    Critical user workflows
+
+    Finding investigation
+
+    Authentication
+
+    Dashboard functionality
+
+Security-sensitive functionality should have dedicated test cases.
+8.7 Code Quality
+
+The project will use automated tooling to maintain code quality.
+
+Expected tooling includes:
+
+    Python formatting
+
+    Python linting
+
+    Static type checking
+
+    TypeScript type checking
+
+    Frontend linting
+
+    Automated tests
+
+    Dependency auditing
+
+The exact tools will be finalized during implementation.
+8.8 Version Control
+
+Git and GitHub will be used for source control and collaboration.
+
+The repository will contain:
+
+    Application source code
+
+    Tests
+
+    Documentation
+
+    Infrastructure configuration
+
+    Architecture decisions
+
+Secrets and sensitive configuration must never be committed.
+8.9 Technology Selection Principle
+
+Technology decisions should prioritize:
+
+    Security
+
+    Maintainability
+
+    Testability
+
+    Observability
+
+    Developer experience
+
+    Performance
+
+    Scalability
+
+Technologies should only be introduced when they provide a clear architectural benefit.
+9. Data Storage
+
+PostgreSQL is Sentinel's primary persistent data store.
+
+The database is designed around a core principle:
+
+    Security findings must remain traceable to the evidence and events that produced them.
+
+Sentinel therefore separates raw telemetry, normalized events, detection results, findings, and AI analysis rather than storing everything as a single record.
+9.1 Core Entities
+
+The initial data model consists of:
+
+    Event
+
+    Detection
+
+    Detection Rule
+
+    Finding
+
+    Evidence
+
+    AI Analysis
+
+    User
+
+    Audit Log
+
+9.2 Entity Relationships
+┌──────────────┐
+│    Event     │
+└──────┬───────┘
+       │
+       │ may trigger
+       ▼
+┌──────────────┐
+│  Detection   │
+└──────┬───────┘
+       │
+       │ contributes to
+       ▼
+┌──────────────┐
+│   Finding    │
+└──────┬───────┘
+       │
+       ├───────────────┐
+       │               │
+       ▼               ▼
+┌──────────────┐ ┌──────────────┐
+│   Evidence   │ │ AI Analysis  │
+└──────────────┘ └──────────────┘
+
+┌──────────────┐
+│ Detection    │
+│    Rule      │
+└──────┬───────┘
+       │
+       │ produces
+       ▼
+┌──────────────┐
+│  Detection   │
+└──────────────┘
+
+┌──────────────┐
+│    User      │
+└──────┬───────┘
+       │
+       ▼
+┌──────────────┐
+│  Audit Log   │
+└──────────────┘
+10. Detection Pipeline
+
+The Detection Pipeline is responsible for evaluating normalized security events and identifying behavior that matches known suspicious patterns.
+
+The pipeline is designed around deterministic, explainable detection before AI-assisted analysis.
+10.1 Detection Philosophy
+
+Sentinel will prioritize:
+
+    Deterministic detection
+
+    Reproducibility
+
+    Evidence preservation
+
+    Explainability
+
+    Low false-positive rates
+
+    Extensibility
+
+A detection should be explainable without requiring an AI model.
+10.2 Detection Pipeline
+Normalized Event
+       │
+       ▼
+┌───────────────┐
+│ Rule Matching │
+└───────┬───────┘
+        │
+        ▼
+┌──────────────────┐
+│ Condition        │
+│ Evaluation       │
+└────────┬─────────┘
+         │
+     ┌───┴───┐
+     │       │
+   Match   No Match
+     │       │
+     ▼       ▼
+ Detection   Continue
+     │
+     ▼
+┌──────────────────┐
+│ Evidence Capture │
+└────────┬─────────┘
+         │
+         ▼
+┌──────────────────┐
+│ Severity /        │
+│ Confidence        │
+└────────┬─────────┘
+         │
+         ▼
+┌──────────────────┐
+│ Correlation       │
+└────────┬─────────┘
+         │
+         ▼
+      Finding
+10.3 Detection Rules
+
+Each detection rule should have a stable identifier.
+
+Example:
+NET-001
+
+AUTH-001
+
+PROC-001
+
+FILE-001
+
+The identifier should remain stable even when the implementation of the rule changes.
+
+Each rule should define:
+
+     Rule ID
+
+     Name
+
+     Description
+
+     Version
+
+     Category
+
+     Severity
+
+     Confidence
+
+     Conditions
+
+     Required event fields
+
+     Evidence fields
+
+     References
+
+     Enabled state
+
+10.4 Rule Versioning
+
+Detection rules must be versioned.
+
+For example:
+AUTH-001 v1
+
+AUTH-001 v2
+
+AUTH-001 v3
+
+Historical detections should retain the rule version that generated them.
+
+This prevents changes to detection logic from making historical results impossible to reproduce.
+10.5 Severity
+
+Sentinel will initially use:
+INFO
+
+LOW
+
+MEDIUM
+
+HIGH
+
+CRITICAL
+
+Severity represents the potential impact of the behavior detected.
+
+Severity should not automatically determine whether an event is malicious.
+10.6 Confidence
+
+Confidence represents how strongly the available evidence supports a detection.
+
+For example:
+LOW
+
+MEDIUM
+
+HIGH
+
+Confidence and severity are intentionally separate.
+
+A detection may have:
+
+     High severity + low confidence
+
+     Low severity + high confidence
+
+These represent different characteristics of a security event.
+10.7 Evidence
+
+Every detection should record the evidence responsible for the match.
+
+Evidence may include:
+
+     Matching event fields
+
+     Source and destination information
+
+     Process information
+
+     User information
+
+     Relevant timestamps
+
+     Rule condition results
+
+Evidence should allow an investigator to understand why the detection occurred without reading the detection implementation.
+10.8 False Positives
+
+False positives are expected in security detection systems.
+
+Sentinel should track sufficient information to investigate false positives.
+
+Potential future capabilities include:
+
+     Dismissing a finding
+
+     Recording a dismissal reason
+
+     Marking a detection as expected behavior
+
+     Rule tuning
+
+     Suppression conditions
+
+     Detection performance metrics
+
+Detection tuning should be based on evidence rather than simply reducing the number of alerts.
+10.9 Detection Testing
+
+Every detection rule should have automated tests covering:
+
+     Expected matches
+
+     Expected non-matches
+
+     Boundary conditions
+
+     Missing fields
+
+     Malformed input
+
+     Severity assignment
+
+     Evidence generation
+
+Detection rules should not be considered complete until their behavior is covered by tests.
+10.10 Initial Detection Categories
+
+The initial Sentinel implementation may include detection categories such as:
+Authentication
+
+Examples:
+
+     Repeated failed authentication attempts
+
+     Unusual authentication patterns
+
+     Authentication from unexpected sources
+
+Network
+
+Examples:
+
+     Suspicious outbound connections
+
+     Unexpected ports
+
+     Connection patterns matching known suspicious behavior
+
+Process
+
+Examples:
+
+     Unexpected process execution
+
+     Suspicious parent-child relationships
+
+     Abnormal process behavior
+
+File
+
+Examples:
+
+     Unexpected executable creation
+
+     Suspicious file modifications
+
+     Sensitive file access patterns
+
+System
+
+Examples:
+
+     Security configuration changes
+
+     Privilege-related events
+
+     Unexpected system behavior
+
+11. AI Analysis Pipeline
+
+The AI Analysis Pipeline provides contextual analysis and explanations for security findings generated by Sentinel's deterministic detection and correlation systems.
+
+AI is treated as an analysis and enrichment component rather than the authoritative source of security decisions.
+11.1 AI's Role
+
+The AI layer may:
+
+    Summarize a security finding.
+
+    Explain why the observed behavior may be suspicious.
+
+    Identify relevant relationships between pieces of evidence.
+
+    Provide contextual information.
+
+    Suggest investigation questions.
+
+    Help analysts understand complex findings.
+
+The AI layer must not independently declare an event malicious without supporting evidence.
+11.2 Analysis Pipeline
+Security Finding
+       │
+       ▼
+┌────────────────────┐
+│ Evidence Selection │
+└─────────┬──────────┘
+          │
+          ▼
+┌────────────────────┐
+│ Context Preparation│
+└─────────┬──────────┘
+          │
+          ▼
+┌────────────────────┐
+│ Prompt Construction│
+└─────────┬──────────┘
+          │
+          ▼
+┌────────────────────┐
+│   AI Model Call    │
+└─────────┬──────────┘
+          │
+          ▼
+11.3 Evidence Selection
+
+Sentinel should provide the AI model only with information relevant to the finding.
+
+Potential context includes:
+
+    Detection rule
+
+    Detection rule version
+
+    Detection reason
+
+    Relevant events
+
+    Event timestamps
+
+    Source and destination information
+
+    Process information
+
+    User information
+
+    Related findings
+
+    Historical context where appropriate
+
+Unrelated telemetry should not be unnecessarily included.
+11.4 Context Construction
+
+The backend is responsible for constructing the AI input.
+
+The AI model must not have direct database access.
+
+The application should explicitly select which information is provided to the model.
+
+This creates a security boundary between Sentinel's data store and the AI provider.
+11.5 Prompt Design
+
+Prompts should clearly distinguish between:
+
+    System instructions
+
+    Security evidence
+
+    User-provided information
+
+    Previous AI analysis
+
+Untrusted event content must be treated as data rather than instructions.
+
+The system should be designed to reduce the risk of prompt injection through malicious telemetry.
+11.6 Structured AI Output
+
+AI responses should use a structured format where practical.
+
+An analysis may contain:
+{
+
+  "summary": "...",
+
+  "reasoning": "...",
+
+  "observed_evidence": [],
+
+  "potential_explanations": [],
+
+  "investigation_questions": [],
+
+  "confidence": "medium"
+
+}
+
+The exact schema will be finalized during implementation.
+11.7 Output Validation
+
+AI output must be validated before being stored or displayed.
+
+Validation should check:
+
+     Required fields
+
+     Data types
+
+     Maximum lengths
+
+     Allowed enum values
+
+     Malformed responses
+
+     Unexpected content
+
+Invalid AI responses should be rejected or marked as failed analysis rather than blindly persisted.
+11.8 AI Failure Handling
+
+The system must continue operating if the AI service is unavailable.
+
+Possible failure states include:
+
+     Provider unavailable
+
+     Request timeout
+
+     Rate limit
+
+     Invalid model response
+
+     Authentication failure
+
+     Network failure
+
+A failed AI analysis must not cause the underlying detection or finding to be lost.
+11.9 AI Confidence
+
+AI-generated confidence must remain separate from detection confidence.
+
+For example:
+Detection Confidence: HIGH
+
+AI Analysis Confidence: MEDIUM
+
+These represent different measurements and should never be treated as interchangeable.
+11.10 AI Provider Abstraction
+
+The application should avoid tightly coupling the detection system to a single AI provider.
+
+An internal interface should allow the AI implementation to be replaced without modifying the detection engine.
+
+Conceptually:
+Detection Engine
+       │
+       ▼
+AI Analysis Service
+       │
+       ▼
+AI Provider Interface
+       │
+ ┌─────┴─────┐
+ ▼           ▼
+Provider A  Provider B
+11.11 Privacy
+
+Only information necessary for analysis should be sent to an external AI provider.
+
+Potentially sensitive information should be minimized, redacted, or anonymized where appropriate.
+
+The system should document what information may leave the Sentinel deployment boundary.
+11.12 AI Auditability
+
+Every AI analysis should retain enough metadata to understand how it was generated.
+
+Where appropriate, store:
+
+     Provider
+
+     Model
+
+     Model version
+
+     Analysis timestamp
+
+     Finding identifier
+
+     Analysis status
+
+     Structured output
+
+     Prompt version
+
+Sensitive prompt content should be handled according to the project's data-retention and privacy requirements.
+11.13 AI Security Principle
+
+The core principle is:
+
+    AI explains evidence; AI does not become the evidence.
+
+Deterministic detections, original events, and supporting evidence remain authoritative security artifacts.
+12. API Architecture
+
+The Sentinel REST API provides the primary interface between the web application and backend services.
+
+The API will be implemented using FastAPI and will act as the primary application boundary for authenticated clients.
+12.1 API Responsibilities
+
+The API is responsible for:
+
+    Authentication
+
+    Authorization
+
+    Request validation
+
+    Business logic orchestration
+
+    Event ingestion
+
+    Detection and finding access
+
+    Investigation workflows
+
+    AI analysis requests
+
+    Administrative operations
+
+    Health and operational endpoints
+
+The API must not expose direct database access to clients.
+12.2 API Architecture
+┌──────────────────┐
+│   Next.js Web UI │
+└────────┬─────────┘
+         │
+         │ HTTPS
+         ▼
+┌──────────────────┐
+│     FastAPI      │
+│   API Layer      │
+└────────┬─────────┘
+         │
+    ┌────┴─────┐
+    │          │
+    ▼          ▼
+┌─────────┐ ┌──────────────┐
+│ Auth &  │ │ Application  │
+│  Authz  │ │   Services   │
+└─────────┘ └──────┬───────┘
+                   │
+          ┌────────┼────────┐
+          ▼        ▼        ▼
+     PostgreSQL Detection   AI
+12.3 API Versioning
+
+The API should use explicit versioning.
+
+Initial version:
+/api/v1/
+
+Example:
+/api/v1/events
+/api/v1/detections
+
+/api/v1/findings
+
+/api/v1/health
+
+Versioning allows future API changes without immediately breaking existing clients.
+12.4 Initial Endpoint Groups
+Authentication
+POST /api/v1/auth/login
+POST /api/v1/auth/logout
+
+GET  /api/v1/auth/me
+
+Authentication implementation details will be finalized during development.
+Events
+GET  /api/v1/events
+GET  /api/v1/events/{event_id}
+
+POST /api/v1/events
+
+Event creation must perform strict validation.
+Detections
+GET /api/v1/detections
+GET /api/v1/detections/{detection_id}
+
+Detection results should be read-only through the initial public API unless an administrative operation explicitly requires modification.
+Findings
+GET   /api/v1/findings
+GET   /api/v1/findings/{finding_id}
+PATCH /api/v1/findings/{finding_id}
+
+The PATCH operation may initially support controlled status changes such as:
+
+     Open
+
+     Investigating
+
+     Resolved
+
+     Dismissed
+
+AI Analysis
+POST /api/v1/findings/{finding_id}/analysis
+GET  /api/v1/findings/{finding_id}/analysis
+
+The API should never allow clients to directly specify arbitrary internal AI prompts without appropriate controls.
+System Health
+GET /api/v1/health
+GET /api/v1/health/ready
+
+Health endpoints should provide only information necessary for operational monitoring and should not expose secrets or sensitive implementation details.
+12.5 Request Validation
+
+FastAPI request schemas will validate:
+
+     Data types
+
+     Required fields
+
+     String lengths
+
+     Enumerated values
+
+     Numeric ranges
+
+     Nested structures
+
+     Request size
+
+Invalid requests should return consistent validation errors.
+12.6 Authentication
+
+Protected API endpoints require authentication.
+
+The exact authentication mechanism will be selected during implementation based on the deployment model and security requirements.
+
+Authentication must not rely solely on client-side state.
+12.7 Authorization
+
+Authentication answers:
+
+    "Who is this user?"
+
+Authorization answers:
+
+    "What is this user allowed to do?"
+
+Authorization must be enforced by backend services.
+
+Potential initial roles:
+ANALYST
+
+ADMIN
+
+Additional roles may be introduced if required.
+12.8 Error Handling
+
+API errors should use consistent response structures.
+
+Example:
+{
+  "error": {
+
+    "code": "FINDING_NOT_FOUND",
+
+    "message": "The requested finding could not be found.",
+
+    "request_id": "..."
+
+  }
+
+}
+
+Internal stack traces and sensitive implementation details must not be returned to clients.
+12.9 Request IDs
+
+API requests should receive a unique request identifier.
+
+The identifier should be used to correlate:
+
+     API requests
+
+     Application logs
+
+     Errors
+
+     Security events
+
+     Audit records
+
+This improves debugging and incident investigation.
+12.10 Rate Limiting
+
+Rate limiting should be applied to endpoints where abuse could impact availability or security.
+
+Higher-risk endpoints may include:
+
+     Authentication
+
+     Event ingestion
+
+     AI analysis
+
+     Administrative operations
+
+Exact limits will be determined during implementation and testing.
+12.11 API Documentation
+
+FastAPI's generated OpenAPI documentation will be used during development.
+
+The project should additionally maintain human-readable API documentation covering:
+
+     Authentication
+
+     Endpoint behavior
+
+     Request schemas
+
+     Response schemas
+
+     Error conditions
+
+     Authorization requirements
+
+     Security considerations
+
+12.12 API Security Principle
+
+The API follows:
+
+    Never trust the client. Authenticate, authorize, validate, and log security-relevant operations on the server.
+
+13. Frontend Architecture
+
+The Sentinel frontend provides the primary interface for security monitoring and investigation.
+
+It will be implemented using Next.js and TypeScript and will communicate with the Sentinel backend exclusively through the REST API.
+13.1 Frontend Responsibilities
+
+The frontend is responsible for:
+
+    Displaying security findings.
+
+    Displaying supporting evidence.
+
+    Providing investigation workflows.
+
+    Filtering and searching security data.
+
+    Displaying detection severity and confidence.
+
+    Presenting AI-generated analysis separately from authoritative evidence.
+
+    Displaying system health and operational information.
+
+    Managing client-side UI state.
+
+    Providing accessible and responsive interfaces.
+
+The frontend is not responsible for enforcing security authorization.
+13.2 Frontend Architecture
+┌─────────────────────────────────────┐
+│             Next.js App             │
+│                                     │
+│  ┌──────────┐ ┌──────────┐          │
+│  │Dashboard │ │ Findings │          │
+│  └──────────┘ └────┬─────┘          │
+│                    │                │
+│              ┌─────▼─────┐          │
+│              │Investigation│        │
+│              │    View     │        │
+│              └─────┬──────┘         │
+│                    │                │
+│             API Client Layer        │
+└────────────────────┬────────────────┘
+                     │
+                   HTTPS
+                     │
+                     ▼
+              Sentinel REST API
+13.3 Core Pages
+
+The initial application should include:
+Dashboard
+
+Provides a high-level view of Sentinel activity.
+
+Potential information:
+
+    Open findings
+
+    Findings by severity
+
+    Recent detections
+
+    Recent events
+
+    System health
+
+    Detection activity over time
+
+Findings
+
+Provides a searchable and filterable list of security findings.
+
+Filters may include:
+
+    Severity
+
+    Status
+
+    Confidence
+
+    Detection category
+
+    Time range
+
+Finding Details
+
+Provides an investigation-oriented view containing:
+
+    Finding summary
+
+    Severity
+
+    Confidence
+
+    Status
+
+    Detection information
+
+    Supporting evidence
+
+    Related events
+
+    AI analysis
+
+    Investigation history
+
+Events
+
+Provides access to normalized security events.
+
+Potential capabilities:
+
+    Search
+
+    Filtering
+
+    Event details
+
+    Related detections
+
+    Related findings
+
+Detection Rules
+
+Provides information about active detection rules.
+
+Potential information:
+
+    Rule ID
+
+    Name
+
+    Description
+
+    Category
+
+    Severity
+
+    Version
+
+    Enabled state
+
+Administrative modification of rules should require appropriate authorization.
+System Health
+
+Provides operational information such as:
+
+    API availability
+
+    Database connectivity
+
+    Detection engine status
+
+    AI provider status
+
+    Service version
+
+Sensitive infrastructure information must not be exposed unnecessarily.
+13.4 Component Organization
+
+The frontend should use reusable components rather than placing all UI logic inside page components.
+
+Conceptually:
+frontend
+/
+├── app/
+├── components/
+│   ├── dashboard/
+│   ├── findings/
+│   ├── events/
+│   ├── detections/
+│   └── common/
+├── lib/
+│   ├── api/
+│   ├── auth/
+│   └── validation/
+├── hooks/
+└── types/
+
+The exact structure may evolve during implementation.
+13.5 API Communication
+
+The frontend communicates with Sentinel through the REST API.
+
+The frontend should not:
+
+     Connect directly to PostgreSQL.
+
+     Contain database credentials.
+
+     Contain privileged backend secrets.
+
+     Implement authoritative authorization logic.
+
+     Trust client-side state as proof of permissions.
+
+13.6 Security Considerations
+
+The frontend must consider:
+
+     Cross-site scripting.
+
+     Cross-site request forgery where applicable.
+
+     Token/session security.
+
+     Untrusted event content.
+
+     Malicious AI-generated content.
+
+     Sensitive information exposure.
+
+     Unauthorized access to protected views.
+
+User-controlled and telemetry-derived content must be safely rendered.
+13.7 State Management
+
+State management should remain as simple as practical.
+
+Server state should be separated from local UI state.
+
+The project should avoid introducing a large state-management framework unless the application's complexity justifies it.
+13.8 Accessibility
+
+The frontend should follow accessible interface practices.
+
+Important considerations include:
+
+     Keyboard navigation.
+
+     Semantic HTML.
+
+     Appropriate labels.
+
+     Sufficient contrast.
+
+     Screen-reader compatibility.
+
+     Clear error messages.
+
+     Non-color-only indicators for severity.
+
+13.9 Responsive Design
+
+The interface should remain usable across:
+
+     Desktop
+
+     Laptop
+
+     Tablet
+
+The primary investigation experience will initially be optimized for larger screens.
+13.10 Frontend Security Principle
+
+The frontend is a presentation layer, not a security boundary.
+
+    Security decisions must be enforced by the backend regardless of what the client displays or requests.
+
+14. Deployment Architecture
+
+Sentinel will use containerized services to provide reproducible development and deployment environments.
+
+The initial deployment architecture prioritizes simplicity, isolation, observability, and secure configuration. The system should be deployable locally before being adapted to a production environment.
+14.1 Initial Deployment
+
+The initial environment will consist of:
+
+    Next.js frontend
+
+    FastAPI backend
+
+    PostgreSQL database
+
+    Detection engine
+
+    AI analysis service
+
+    Supporting infrastructure where required
+
+Docker will provide service isolation and reproducible environments.
+14.2 Development Architecture
+┌───────────────────────────────────────────────┐
+│              Docker Environment               │
+│                                               │
+│  ┌──────────────┐      ┌──────────────┐       │
+│  │   Next.js    │─────►│   FastAPI    │       │
+│  │   Frontend   │      │     API      │       │
+│  └──────────────┘      └──────┬───────┘       │
+│                               │               │
+│                    ┌──────────┼──────────┐    │
+│                    ▼          ▼          ▼    │
+│              ┌──────────┐ ┌─────────┐ ┌─────┐ │
+│              │PostgreSQL│ │Detection│ │ AI  │ │
+│              │          │ │ Engine  │ │     │ │
+│              └──────────┘ └─────────┘ └─────┘ │
+│                                               │
+└───────────────────────────────────────────────┘
+14.3 Service Isolation
+
+Each major service should have a clearly defined responsibility.
+
+Services should communicate through explicitly defined interfaces rather than relying on direct access to another service's internal implementation.
+
+The database should only be directly accessible by authorized backend services.
+14.4 Configuration
+
+Configuration must be separated from application source code.
+
+Configuration may include:
+
+    Database connection information
+
+    API configuration
+
+    AI provider configuration
+
+    Authentication configuration
+
+    Logging configuration
+
+    Environment-specific settings
+
+Secrets must never be embedded directly into Dockerfiles, source code, or committed configuration files.
+14.5 Environment Separation
+
+Sentinel should distinguish between environments such as:
+development
+
+test
+
+production
+
+Each environment should have appropriate:
+
+     Configuration
+
+     Credentials
+
+     Logging levels
+
+     Database instances
+
+     External service configuration
+
+Production credentials must never be reused in development.
+14.6 Container Security
+
+Containers should follow least-privilege principles.
+
+Where practical:
+
+     Run processes as non-root users.
+
+     Use minimal base images.
+
+     Keep images updated.
+
+     Avoid unnecessary packages.
+
+     Avoid exposing unnecessary ports.
+
+     Do not store secrets in images.
+
+     Restrict inter-service communication where practical.
+
+14.7 Database Deployment
+
+PostgreSQL should run as an isolated service.
+
+Database persistence must use appropriate storage rather than relying solely on the container filesystem.
+
+Database migrations must be version-controlled and executed through the project's migration system.
+14.8 Production Deployment
+
+The production deployment strategy will be finalized after the initial application is stable.
+
+Potential deployment targets may include:
+
+     Managed container platforms
+
+     Virtual machines
+
+     Kubernetes
+
+     Managed database services
+
+The project will avoid introducing orchestration complexity before it provides a measurable benefit.
+14.9 CI/CD
+
+GitHub Actions will eventually automate:
+
+     Linting
+
+     Type checking
+
+     Unit tests
+
+     Integration tests
+
+     Security checks
+
+     Container builds
+
+     Deployment workflows where appropriate
+
+Pull requests should pass required automated checks before merging.
+14.10 Deployment Principle
+
+The deployment architecture follows:
+
+    Reproducible builds, isolated services, externalized configuration, least privilege, and automated verification.
+
+15. Observability
+
+Observability allows Sentinel developers and operators to understand the internal state and behavior of the system.
+
+Sentinel will initially focus on three primary observability signals:
+
+    Logs
+
+    Metrics
+
+    Health information
+
+Tracing may be introduced as the system becomes more distributed.
+15.1 Logging
+
+Application components should produce structured logs containing useful operational and security context.
+
+Important log fields may include:
+
+    Timestamp
+
+    Log level
+
+    Service
+
+    Environment
+
+    Request ID
+
+    Event ID
+
+    Finding ID
+
+    Detection ID
+
+    User ID where appropriate
+
+    Error code
+
+    Message
+
+Logs should be structured so they can eventually be consumed by centralized logging systems.
+15.2 Log Levels
+
+Sentinel will initially use:
+DEBUG
+INFO
+WARNING
+ERROR
+CRITICAL
+DEBUG
+
+Detailed information useful during development.
+INFO
+
+Normal application and operational events.
+WARNING
+
+Unexpected conditions that do not necessarily prevent operation.
+ERROR
+
+Failures affecting a specific operation or component.
+CRITICAL
+
+Severe failures that may prevent a major system component from functioning.
+
+Production logging should avoid excessive DEBUG-level output.
+15.3 Sensitive Information
+
+Logs must not unnecessarily contain:
+
+    Passwords
+
+    API keys
+
+    Authentication tokens
+
+    Database credentials
+
+    Full secrets
+
+    Sensitive personal information
+
+Security-sensitive values should be redacted where necessary.
+15.4 Request Correlation
+
+Each API request should have a unique request ID.
+
+The request ID should be propagated through relevant application operations so that a single request can be traced across logs.
+
+Example:
+Request
+
+  │
+
+  ├── API log
+
+  │
+
+  ├── Detection service log
+
+  │
+
+  ├── Database operation
+
+  │
+
+  └── AI analysis request
+15.5 Health Checks
+
+Sentinel should expose health endpoints for operational monitoring.
+Liveness
+
+Determines whether the application process is running.
+GET /api/v1/health
+Readiness
+
+Determines whether required dependencies are available.
+GET /api/v1/health/ready
+
+Readiness checks may verify:
+
+     Database connectivity
+
+     Required application dependencies
+
+     Detection engine availability
+
+     Required configuration
+
+External AI availability should not necessarily make the entire application unavailable.
+15.6 Metrics
+
+Sentinel should eventually expose application metrics such as:
+API
+
+     Request count
+
+     Request latency
+
+     Error rate
+
+     Response status distribution
+
+Detection
+
+     Events processed
+
+     Detection matches
+
+     Detection processing time
+
+     Findings created
+
+     Findings by severity
+
+     False-positive rate where measurable
+
+AI
+
+     Analysis requests
+
+     Analysis latency
+
+     Analysis failures
+
+     Provider errors
+
+     Token usage where available
+
+Database
+
+     Connection availability
+
+     Query latency
+
+     Migration status
+
+     Storage usage
+
+15.7 Security Metrics
+
+Security-relevant metrics may include:
+
+     Authentication failures
+
+     Authorization failures
+
+     Detection volume
+
+     Findings by severity
+
+     Repeated detection patterns
+
+     Rule execution failures
+
+     Ingestion failures
+
+Metrics should provide operational visibility without exposing sensitive event content.
+15.8 Audit Logging
+
+Security-sensitive user actions should be recorded through the audit logging system described in the data model.
+
+Audit logs should be separated conceptually from ordinary application logs.
+
+Application logs answer:
+
+    "What happened inside the software?"
+
+Audit logs answer:
+
+    "What security-relevant action occurred, and who performed it?"
+
+15.9 Error Tracking
+
+Unexpected application errors should be captured with enough context to diagnose the issue.
+
+Errors should include:
+
+     Request ID
+
+     Service
+
+     Error code
+
+     Timestamp
+
+     Relevant entity identifiers
+
+     Stack trace in development environments
+
+Production responses should not expose internal stack traces to users.
+15.10 Future Distributed Tracing
+
+If Sentinel eventually introduces multiple independently deployed services, distributed tracing may be introduced.
+
+Potential tracing information includes:
+API Request
+    │
+    ▼
+Event Ingestion
+    │
+    ▼
+Detection
+    │
+    ▼
+Database
+    │
+    ▼
+AI Analysis
+
+Tracing should only be introduced when system complexity justifies the additional operational overhead.
+15.11 Observability Principle
+
+Sentinel should follow:
+
+    If a component fails, the system should provide enough information to determine what failed, where it failed, and why it failed without exposing sensitive information.
+
+16. Testing Strategy
+
+Testing is a core part of Sentinel's development process.
+
+Because Sentinel makes security-related observations, correctness and reproducibility are more important than simply achieving high code coverage.
+
+The testing strategy is divided into:
+
+    Unit testing
+
+    Integration testing
+
+    API testing
+
+    Detection testing
+
+    Security testing
+
+    End-to-end testing
+
+    Infrastructure testing
+
+16.1 Testing Principles
+
+Sentinel testing should prioritize:
+
+    Correctness
+
+    Reproducibility
+
+    Isolation
+
+    Security
+
+    Regression prevention
+
+    Meaningful coverage
+
+Tests should verify behavior rather than simply increasing a coverage percentage.
+16.2 Unit Tests
+
+Unit tests validate individual components in isolation.
+
+Examples:
+
+    Event validation
+
+    Event normalization
+
+    Detection rules
+
+    Severity calculation
+
+    Confidence calculation
+
+    Correlation logic
+
+    API validation
+
+    Utility functions
+
+Unit tests should be fast enough to run frequently during development.
+16.3 Detection Tests
+
+Detection rules require dedicated tests.
+
+Every detection rule should test:
+Positive Cases
+
+Events that should trigger the rule.
+Negative Cases
+
+Events that should not trigger the rule.
+Boundary Cases
+
+Events near the conditions where the rule changes behavior.
+Malformed Input
+
+Events containing:
+
+    Missing fields
+
+    Invalid types
+
+    Unexpected values
+
+    Oversized values
+
+Evidence
+
+Tests should verify that a matching rule produces the expected supporting evidence.
+
+Example:
+Input Event
+     │
+     ▼
+Detection Rule
+     │
+     ├── Expected Match ──► Detection + Evidence
+     │
+     └── Expected No Match ──► No Detection
+16.4 Integration Tests
+
+Integration tests verify that multiple components work together.
+
+Examples:
+
+    API → PostgreSQL
+
+    Event ingestion → normalization
+
+    Detection → database persistence
+
+    Detection → finding creation
+
+    Finding → AI analysis
+
+    Authentication → authorization
+
+Integration tests should use isolated test infrastructure.
+16.5 API Tests
+
+API tests should verify:
+
+    Successful requests
+
+    Invalid requests
+
+    Authentication failures
+
+    Authorization failures
+
+    Missing resources
+
+    Malformed input
+
+    Rate limiting where implemented
+
+    Consistent error responses
+
+Security-sensitive endpoints should have explicit negative tests.
+16.6 Database Tests
+
+Database testing should verify:
+
+    Schema constraints
+
+    Foreign-key relationships
+
+    Unique constraints
+
+    Migration correctness
+
+    Transaction behavior
+
+    Data persistence
+
+    Deletion behavior
+
+    Indexes where behavior depends on them
+
+Tests should avoid relying on developer-specific database state.
+16.7 AI Tests
+
+AI behavior is probabilistic, so tests should focus on the boundaries controlled by Sentinel.
+
+Tests should verify:
+
+    Evidence selection
+
+    Prompt construction
+
+    Structured output validation
+
+    Invalid model responses
+
+    Provider failures
+
+    Timeouts
+
+    Rate limits
+
+    Missing analysis
+
+    AI output separation from authoritative detection data
+
+The project should avoid treating a specific free-form model response as deterministic unless the behavior is explicitly constrained.
+16.8 Security Tests
+
+Security testing should cover areas such as:
+
+    Authentication
+
+    Authorization
+
+    Input validation
+
+    Injection resistance
+
+    Access control
+
+    Secret exposure
+
+    Sensitive data handling
+
+    Malicious telemetry
+
+    Prompt injection resistance
+
+    Dependency vulnerabilities
+
+Security tests should be added alongside relevant features rather than postponed until the end of development.
+16.9 End-to-End Tests
+
+End-to-end tests validate critical workflows through the user interface.
+
+An initial workflow may be:
+Event Ingestion
+      │
+      ▼
+Detection
+      │
+      ▼
+Finding Creation
+      │
+      ▼
+AI Analysis
+      │
+      ▼
+Finding Displayed
+      │
+      ▼
+Analyst Investigation
+
+Only the most important user workflows should require full end-to-end testing because these tests are more expensive to maintain.
+16.10 Frontend Testing
+
+Frontend tests should cover:
+
+     Component behavior
+
+     Form validation
+
+     API error handling
+
+     Authentication states
+
+     Finding display
+
+     Filtering
+
+     Accessibility-critical behavior
+
+Visual tests may be introduced if the application becomes sufficiently complex.
+16.11 Infrastructure Testing
+
+Infrastructure should be tested for:
+
+     Docker image builds
+
+     Service startup
+
+     Database migrations
+
+     Environment configuration
+
+     Health checks
+
+     CI pipeline correctness
+
+16.12 Regression Testing
+
+When a bug is discovered, a regression test should be added where practical.
+
+The goal is to ensure that fixing a defect prevents it from silently returning.
+16.13 Continuous Integration
+
+GitHub Actions will eventually run automated checks for pull requests.
+
+The initial CI pipeline should include:
+Pull Request
+     │
+     ├── Lint
+     ├── Type Check
+     ├── Unit Tests
+     ├── Integration Tests
+     ├── Security Checks
+     └── Build Verification
+              │
+              ▼
+         Merge Allowed
+16.14 Coverage
+
+Code coverage will be monitored but will not be treated as the sole measure of quality.
+
+Security-critical components should receive particularly strong test coverage.
+16.15 Testing Principle
+
+Sentinel follows:
+
+    Every security-sensitive behavior should be reproducible, testable, and protected against regression.
+
+17. Scalability Considerations
+
+Sentinel's initial architecture is designed for a controlled development environment while keeping clear paths for future scaling.
+
+The project will prioritize simplicity during initial development and introduce additional infrastructure only when measurable requirements justify it.
+17.1 Initial Scale
+
+The first version of Sentinel is intended for:
+
+    Local development
+
+    Demonstration environments
+
+    Small controlled deployments
+
+    Limited event volumes
+
+    A small number of authenticated users
+
+The initial architecture should not introduce distributed infrastructure without a demonstrated need.
+17.2 Horizontal API Scaling
+
+The FastAPI application should be designed to remain as stateless as practical.
+
+This allows multiple API instances to eventually run behind a load balancer.
+             ┌───────────────┐
+             │ Load Balancer │
+             └───────┬───────┘
+                     │
+            ┌────────┼────────┐
+            ▼        ▼        ▼
+         API #1    API #2    API #3
+            │        │        │
+            └────────┼────────┘
+                     ▼
+                PostgreSQL
+
+Application state that must persist should be stored in appropriate shared infrastructure rather than in individual API processes.
+17.3 Database Scaling
+
+PostgreSQL will initially serve as the primary data store.
+
+Potential future strategies include:
+
+    Query optimization
+
+    Index optimization
+
+    Connection pooling
+
+    Table partitioning
+
+    Read replicas
+
+    Managed PostgreSQL
+
+    Archival storage
+
+Database scaling should be based on observed workload rather than assumed requirements.
+17.4 Event Processing
+
+As event volume increases, synchronous event processing may become insufficient.
+
+A future architecture may introduce a message queue or event broker:
+Event Sources
+      │
+      ▼
+Event Ingestion
+      │
+      ▼
+Message Queue
+      │
+      ├──────────► Detection Workers
+      │
+      ├──────────► Correlation Workers
+      │
+      └──────────► Storage Workers
+
+Potential technologies may include:
+
+     Redis Streams
+
+     RabbitMQ
+
+     Apache Kafka
+
+The technology will be selected only when asynchronous processing provides a measurable benefit.
+17.5 Detection Scaling
+
+Detection processing can eventually be separated into independent workers.
+
+This would allow detection capacity to scale according to event volume.
+
+Detection workers should remain deterministic and independently testable.
+17.6 AI Scaling
+
+AI analysis may become a significant source of latency and cost.
+
+Potential strategies include:
+
+     Asynchronous analysis
+
+     Queuing analysis requests
+
+     Result caching
+
+     Request deduplication
+
+     Model selection based on task complexity
+
+     Provider fallback
+
+     Rate limiting
+
+     Analysis prioritization
+
+AI analysis should not block the creation or persistence of security findings.
+17.7 Data Retention
+
+High-volume event data may eventually require lifecycle management.
+
+Potential strategies include:
+
+     Short-term hot storage
+
+     Long-term archival
+
+     Partitioning
+
+     Compression
+
+     Retention policies
+
+Findings and audit records may require different retention periods from raw telemetry.
+17.8 Frontend Scaling
+
+The Next.js frontend should remain independently deployable from the backend.
+
+Potential future improvements include:
+
+     CDN delivery
+
+     Static asset caching
+
+     Server-side rendering where appropriate
+
+     Client-side data caching
+
+17.9 Observability at Scale
+
+As Sentinel becomes distributed, observability will need to evolve.
+
+Potential additions include:
+
+     Centralized logging
+
+     Distributed tracing
+
+     Metrics aggregation
+
+     Alerting
+
+     Service-level objectives
+
+Request IDs and correlation IDs established during the initial implementation will provide a foundation for this.
+17.10 Security at Scale
+
+Scaling must not weaken security controls.
+
+Future deployments should maintain:
+
+     Least privilege
+
+     Network segmentation
+
+     Secret management
+
+     Strong authentication
+
+     Authorization
+
+     Encryption in transit
+
+     Encryption at rest where appropriate
+
+     Audit logging
+
+17.11 Scalability Principle
+
+Sentinel follows:
+
+    Start simple, measure real bottlenecks, and introduce complexity only when it solves a demonstrated problem.
+
+18. Architectural Decisions
+
+This section records significant technical decisions made during Sentinel's development.
+
+Each Architecture Decision Record (ADR) documents:
+
+    The context surrounding the decision.
+
+    The decision that was made.
+
+    The reasoning behind the decision.
+
+    The consequences of the decision.
+
+    Conditions under which the decision may need to be revisited.
+
+ADRs are intended to make Sentinel's architecture understandable and provide a historical record of why major technical decisions were made.
+ADR-001 — Use Python for Backend and Detection
+Status
+
+Accepted
+Context
+
+Sentinel requires a backend capable of processing security telemetry, implementing deterministic detection logic, integrating with AI services, and supporting future security-analysis functionality.
+
+The project also requires access to mature libraries for networking, data processing, validation, testing, and security-related development.
+Decision
+
+Python will be used for Sentinel's backend, event processing, detection engine, and AI integration.
+Rationale
+
+Python provides:
+
+    A mature ecosystem for cybersecurity and security tooling.
+
+    Strong support for data processing.
+
+    Mature AI and machine-learning libraries.
+
+    Type hints and static analysis capabilities.
+
+    Extensive testing frameworks.
+
+    Good developer productivity for security-analysis workloads.
+
+Using one primary language for backend processing also reduces unnecessary complexity during the initial development phase.
+Consequences
+Positive
+
+    Strong ecosystem for future security-analysis features.
+
+    Rapid development of detection logic.
+
+    Large selection of libraries.
+
+    Consistent backend language.
+
+Negative
+
+    Python may not provide the same raw performance as lower-level languages for extremely high-throughput workloads.
+
+    CPU-intensive workloads may eventually require optimization or dedicated worker implementations.
+
+Revisit When
+
+This decision should be reconsidered if profiling demonstrates that Python-based processing has become a significant performance bottleneck.
+ADR-002 — Use FastAPI for the REST API
+Status
+
+Accepted
+Context
+
+Sentinel requires a typed REST API between the web interface and backend services.
+
+The API needs request validation, clear endpoint definitions, authentication and authorization support, and automatically generated API documentation.
+Decision
+
+FastAPI will be used as Sentinel's primary REST API framework.
+Rationale
+
+FastAPI provides:
+
+    Python type-hint integration.
+
+    Request and response validation.
+
+    OpenAPI documentation.
+
+    Good asynchronous support.
+
+    Clear API structure.
+
+    Strong integration with Python application code.
+
+Consequences
+Positive
+
+    Strong API validation.
+
+    Automatically generated documentation.
+
+    Consistent schema definitions.
+
+    Good developer experience.
+
+Negative
+
+    The project becomes coupled to the Python web ecosystem.
+
+    Additional architectural discipline is required to prevent API routes from containing excessive business logic.
+
+Revisit When
+
+This decision should be reconsidered if the API's performance, deployment requirements, or ecosystem needs significantly change.
+ADR-003 — Use PostgreSQL as the Primary Data Store
+Status
+
+Accepted
+Context
+
+Sentinel must store events, detections, findings, evidence, AI analysis, users, and audit records while maintaining relationships between these entities.
+Decision
+
+PostgreSQL will be Sentinel's primary persistent database.
+Rationale
+
+PostgreSQL provides:
+
+    Strong relational integrity.
+
+    Transactions.
+
+    Foreign keys.
+
+    Constraints.
+
+    Indexing.
+
+    JSON/JSONB support.
+
+    Mature tooling.
+
+    Strong operational support.
+
+The relational model is appropriate because Sentinel requires traceable relationships between security artifacts.
+Consequences
+Positive
+
+    Strong consistency.
+
+    Clear entity relationships.
+
+    Mature query capabilities.
+
+    Flexible support for structured and semi-structured data.
+
+Negative
+
+    Very large telemetry volumes may eventually require partitioning or additional storage systems.
+
+    Database schema changes must be managed carefully.
+
+Revisit When
+
+This decision should be reconsidered if event volume or retention requirements exceed what the PostgreSQL-based architecture can efficiently support.
+ADR-004 — Separate Detection from AI Analysis
+Status
+
+Accepted
+Context
+
+AI models can provide useful explanations and contextual analysis, but their output can be probabilistic, inconsistent, or influenced by untrusted input.
+
+Security detections require reproducible and explainable behavior.
+Decision
+
+Deterministic detection will remain separate from AI analysis.
+
+Detection rules will produce authoritative detection results, while AI will provide contextual analysis and explanations.
+Rationale
+
+This separation provides:
+
+    Reproducibility.
+
+    Testability.
+
+    Clear evidence chains.
+
+    Reduced dependence on model behavior.
+
+    Easier debugging.
+
+    Ability to replace AI providers independently.
+
+Consequences
+Positive
+
+    Security decisions remain explainable.
+
+    AI failures do not prevent deterministic detection.
+
+    Detection rules can be tested independently.
+
+    AI providers can be replaced.
+
+Negative
+
+    The architecture contains an additional processing stage.
+
+    AI analysis may require additional infrastructure and cost.
+
+Revisit When
+
+The architecture may evolve as AI capabilities improve, but AI should not become authoritative without strong evidence and validation.
+ADR-005 — Preserve Original Event Data
+Status
+
+Accepted
+Context
+
+Sentinel normalizes incoming telemetry into a common internal schema.
+
+Normalization can remove source-specific information if the original event is discarded.
+Decision
+
+Sentinel will preserve the original event data alongside normalized fields where storage and privacy requirements permit.
+Rationale
+
+Preserving original data provides:
+
+    Investigation capability.
+
+    Evidence traceability.
+
+    Debugging capability.
+
+    Detection-rule development support.
+
+    Ability to improve normalization without losing source information.
+
+Consequences
+Positive
+
+    Better forensic context.
+
+    Improved debugging.
+
+    Greater auditability.
+
+Negative
+
+    Increased storage requirements.
+
+    Additional privacy and retention considerations.
+
+    Raw data may contain sensitive information and therefore requires appropriate handling.
+
+Revisit When
+
+Retention requirements, privacy constraints, or storage costs require a different raw-event strategy.
+ADR-006 — Start with a Modular Architecture
+Status
+
+Accepted
+Context
+
+Sentinel contains multiple logical components, including ingestion, normalization, detection, correlation, API functionality, and AI analysis.
+
+Deploying each component as an independent service from the beginning would introduce significant operational complexity.
+Decision
+
+Sentinel will initially use a modular architecture within a small number of deployable services rather than immediately adopting microservices.
+Rationale
+
+This approach provides:
+
+    Clear internal boundaries.
+
+    Lower operational complexity.
+
+    Easier local development.
+
+    Simpler debugging.
+
+    Faster iteration.
+
+Components can later be separated if measurable requirements justify doing so.
+Consequences
+Positive
+
+    Easier development.
+
+    Simpler deployment.
+
+    Lower infrastructure overhead.
+
+Negative
+
+    Some components may eventually require extraction.
+
+    Internal boundaries must be maintained carefully to prevent tight coupling.
+
+Revisit When
+
+A component requires independent scaling, deployment, fault isolation, or ownership that justifies separating it into an independent service.
+ADR-007 — Use Docker for Reproducible Environments
+Status
+
+Accepted
+Context
+
+Sentinel contains multiple dependencies including PostgreSQL and backend/frontend services.
+
+Development environments should be reproducible across machines.
+Decision
+
+Docker will be used to containerize Sentinel services, with Docker Compose initially used for local multi-service development.
+Rationale
+
+Docker provides:
+
+    Reproducible environments.
+
+    Service isolation.
+
+    Consistent dependency versions.
+
+    Easier onboarding.
+
+    A path toward production container deployment.
+
+Consequences
+Positive
+
+    Easier setup.
+
+    Consistent development environments.
+
+    Clear service boundaries.
+
+Negative
+
+    Additional container configuration.
+
+    Docker introduces resource overhead.
+
+    Developers must understand container networking and storage.
+
+Revisit When
+
+Deployment requirements justify a different infrastructure strategy.
+ADR-008 — Treat AI Output as Non-Authoritative
+Status
+
+Accepted
+Context
+
+AI-generated analysis can contain incorrect assumptions, hallucinations, or interpretations influenced by malicious input.
+
+Security decisions must remain grounded in observable evidence.
+Decision
+
+AI-generated content will never replace the original evidence or deterministic detection result.
+Rationale
+
+The authoritative security chain is:
+Event → Detection → Evidence → Finding
+
+AI analysis is an enrichment layer:
+Finding → AI Analysis
+
+This ensures that AI failures do not destroy or alter the underlying security evidence.
+Consequences
+Positive
+
+     Better auditability.
+
+     Reduced impact of AI errors.
+
+     Easier provider replacement.
+
+     Clear distinction between evidence and interpretation.
+
+Negative
+
+     Analysts must understand that AI analysis is advisory.
+
+     The UI must clearly distinguish AI-generated content.
+
+Revisit When
+
+This principle should remain unless the system develops strong validation mechanisms capable of establishing trustworthy AI-assisted decisions.
+ADR-009 — Version Detection Rules
+Status
+
+Accepted
+Context
+
+Detection rules may change as Sentinel evolves.
+
+Changing a rule can change its behavior against the same event.
+Decision
+
+Detection rules will have explicit versions.
+
+Historical detection results will retain the rule version that produced them.
+Rationale
+
+Versioning provides:
+
+     Reproducibility.
+
+     Historical accuracy.
+
+     Easier debugging.
+
+     Detection performance comparison.
+
+     Safer rule updates.
+
+Consequences
+Positive
+
+     Historical detections remain explainable.
+
+     Rule changes can be tested independently.
+
+Negative
+
+     Additional metadata must be maintained.
+
+     Old rule versions may need to remain available for historical analysis.
+
+Revisit When
+
+The rule lifecycle becomes sufficiently complex to require a more advanced rule registry or version-management system.
+ADR-010 — Use Backend-Enforced Authorization
+Status
+
+Accepted
+Context
+
+The Sentinel frontend displays information and provides user interfaces, but frontend code can be modified or bypassed by a client.
+
+Security authorization therefore cannot depend on frontend behavior.
+Decision
+
+All authoritative authorization decisions will be enforced by the backend.
+Rationale
+
+The backend is the trusted application boundary.
+
+The frontend may hide unavailable functionality for usability, but this must never be considered a security control.
+Consequences
+Positive
+
+     Stronger security boundary.
+
+     Consistent authorization.
+
+     Reduced risk from manipulated clients.
+
+Negative
+
+     Authorization logic must be implemented and tested on the backend.
+
+     Frontend and backend permission states must remain synchronized.
+
+Revisit When
+
+The authorization architecture evolves to support more complex identity or policy-management systems.
+ADR Summary
+
+ADR
+
+
+Decision
+
+
+Status
+
+ADR-001
+
+
+Use Python for Backend and Detection
+
+
+Accepted
+
+ADR-002
+
+
+Use FastAPI for the REST API
+
+
+Accepted
+
+ADR-003
+
+
+Use PostgreSQL as the Primary Data Store
+
+
+Accepted
+
+ADR-004
+
+
+Separate Detection from AI Analysis
+
+
+Accepted
+
+ADR-005
+
+
+Preserve Original Event Data
+
+
+Accepted
+
+ADR-006
+
+
+Start with a Modular Architecture
+
+
+Accepted
+
+ADR-007
+
+
+Use Docker for Reproducible Environments
+
+
+Accepted
+
+ADR-008
+
+
+Treat AI Output as Non-Authoritative
+
+
+Accepted
+
+ADR-009
+
+
+Version Detection Rules
+
+
+Accepted
+
+ADR-010
+
+
+Use Backend-Enforced Authorization
+
+
+Accepted
+19. Known Limitations
+
+Sentinel is an evolving security engineering project. The initial architecture intentionally focuses on correctness, explainability, maintainability, and demonstrable security engineering practices rather than attempting to solve every cybersecurity problem.
+
+The following limitations are known and accepted for the initial implementation.
+19.1 Limited Telemetry Sources
+
+The initial version will support a limited number of event sources.
+
+It will not attempt to ingest every possible operating system, network device, cloud platform, or security product.
+
+Additional integrations can be introduced as the ingestion architecture matures.
+19.2 Limited Detection Coverage
+
+Initial detection rules will cover a relatively small set of security behaviors.
+
+This means Sentinel should not be considered a complete intrusion detection or security information and event management platform.
+
+Detection coverage will expand incrementally.
+19.3 Detection Accuracy
+
+Deterministic detection rules may produce:
+
+    False positives
+
+    False negatives
+
+    Incomplete context
+
+Detection accuracy will depend on the quality and completeness of available telemetry.
+
+Detection performance will be measured and improved over time.
+19.4 AI Reliability
+
+AI-generated analysis may contain:
+
+    Incorrect interpretations
+
+    Incomplete explanations
+
+    Hallucinated context
+
+    Inconsistent responses
+
+AI output is therefore treated as advisory and does not replace authoritative security evidence.
+19.5 AI Provider Dependency
+
+The initial implementation may depend on an external AI provider.
+
+This introduces potential:
+
+    Availability limitations
+
+    Rate limits
+
+    Cost
+
+    Network dependency
+
+    Privacy considerations
+
+The architecture attempts to reduce provider lock-in through an internal AI service abstraction.
+19.6 Limited Distributed Processing
+
+The initial implementation will process events using a relatively simple architecture.
+
+A dedicated message queue and distributed worker system will not be introduced until event volume justifies the additional complexity.
+19.7 Limited Multi-Tenancy
+
+The initial system is not designed as a large-scale multi-tenant SaaS platform.
+
+Tenant isolation, organization-level administration, and advanced resource quotas may require additional architectural work.
+19.8 Limited Identity Management
+
+The initial authentication system will provide the minimum functionality required for a secure development and demonstration environment.
+
+Enterprise identity providers, SSO, advanced MFA, and complex identity federation may be introduced later.
+19.9 Limited High Availability
+
+The initial deployment is not designed to provide enterprise-grade high availability.
+
+A production deployment requiring strong availability guarantees would require additional infrastructure such as:
+
+    Redundant application instances
+
+    Database failover
+
+    Load balancing
+
+    Health-based service recovery
+
+    Backup and disaster recovery procedures
+
+19.10 Limited Long-Term Data Retention
+
+The initial implementation prioritizes functionality and traceability rather than large-scale long-term telemetry retention.
+
+High-volume deployments may require:
+
+    Partitioning
+
+    Archival storage
+
+    Compression
+
+    Retention policies
+
+    Lifecycle management
+
+19.11 Limited Forensic Capabilities
+
+Sentinel is initially designed for security monitoring and investigation rather than full digital forensics.
+
+It will not initially provide capabilities such as:
+
+    Disk forensics
+
+    Memory forensics
+
+    Malware reverse engineering
+
+    Full packet capture analysis
+
+    Advanced endpoint acquisition
+
+19.12 Development-First Infrastructure
+
+The initial infrastructure is optimized for reproducible development and demonstration.
+
+Production deployments will require additional hardening, monitoring, backup, disaster recovery, secret management, and infrastructure controls.
+19.13 Scope Principle
+
+These limitations are intentional.
+
+Sentinel will prioritize implementing a smaller number of capabilities correctly rather than claiming support for security functionality that has not been thoroughly implemented and tested.
+20. Future Improvements
+
+Sentinel is designed so that additional capabilities can be introduced without fundamentally changing the core architecture.
+
+Future improvements are grouped by area.
+20.1 Detection
+
+Potential improvements include:
+
+    Additional authentication detections.
+
+    Network anomaly detection.
+
+    Process behavior analysis.
+
+    File integrity monitoring.
+
+    Privilege escalation detections.
+
+    Suspicious persistence detection.
+
+    Detection rule tagging.
+
+    Rule suppression.
+
+    Rule tuning.
+
+    Rule performance metrics.
+
+    Detection testing datasets.
+
+20.2 Event Sources
+
+Potential integrations include:
+
+    Linux system logs.
+
+    Windows event logs.
+
+    Network telemetry.
+
+    Web server logs.
+
+    Cloud infrastructure logs.
+
+    Container logs.
+
+    Authentication providers.
+
+    Security tooling.
+
+Each integration should map source-specific telemetry into Sentinel's normalized event model.
+20.3 Correlation
+
+Future correlation capabilities may include:
+
+    Multi-event attack chains.
+
+    Time-window correlation.
+
+    Entity-based correlation.
+
+    User behavior relationships.
+
+    Host-based relationships.
+
+    Network relationship analysis.
+
+20.4 AI
+
+Potential AI improvements include:
+
+    Multiple AI providers.
+
+    Local models.
+
+    Model selection based on analysis complexity.
+
+    Retrieval-augmented contextual analysis.
+
+    Automated investigation assistance.
+
+    Better structured explanations.
+
+    AI-assisted detection-rule development.
+
+    Analyst feedback loops.
+
+AI-generated recommendations should remain distinguishable from authoritative security evidence.
+20.5 Investigation
+
+Future investigation capabilities may include:
+
+    Investigation timelines.
+
+    Event relationship graphs.
+
+    Finding grouping.
+
+    Analyst notes.
+
+    Evidence tagging.
+
+    Case management.
+
+    Investigation collaboration.
+
+    Exportable investigation reports.
+
+20.6 Identity and Access Management
+
+Future improvements may include:
+
+    Multi-factor authentication.
+
+    Single sign-on.
+
+    OAuth/OIDC integration.
+
+    More granular roles.
+
+    Organization-level permissions.
+
+    Fine-grained authorization policies.
+
+20.7 Infrastructure
+
+Potential infrastructure improvements include:
+
+    Asynchronous event processing.
+
+    Message queues.
+
+    Distributed detection workers.
+
+    Horizontal API scaling.
+
+    Managed PostgreSQL.
+
+    Centralized logging.
+
+    Distributed tracing.
+
+    Automated backups.
+
+    Disaster recovery.
+
+20.8 Security
+
+Potential security improvements include:
+
+    Automated dependency scanning.
+
+    Container vulnerability scanning.
+
+    Static application security testing.
+
+    Dynamic application security testing.
+
+    Secrets scanning.
+
+    Software supply-chain verification.
+
+    Security-focused CI pipelines.
+
+    Threat modeling.
+
+    Penetration testing.
+
+20.9 Performance
+
+Potential performance improvements include:
+
+    Database query optimization.
+
+    Index optimization.
+
+    Event batching.
+
+    Connection pooling.
+
+    Asynchronous processing.
+
+    Caching.
+
+    Event partitioning.
+
+    Detection worker scaling.
+
+Performance improvements should be guided by measurements and profiling.
+20.10 Observability
+
+Future observability capabilities may include:
+
+    Prometheus-compatible metrics.
+
+    Grafana dashboards.
+
+    Centralized log aggregation.
+
+    Distributed tracing.
+
+    Alerting.
+
+    Service-level objectives.
+
+    Detection performance dashboards.
+
+20.11 Deployment
+
+Future deployment improvements may include:
+
+    Production cloud deployment.
+
+    Infrastructure as Code.
+
+    Automated deployment pipelines.
+
+    Managed database services.
+
+    Container orchestration where justified.
+
+    Blue/green or rolling deployments.
+
+20.12 Research Direction
+
+Long-term research areas may include:
+
+    Behavioral anomaly detection.
+
+    Graph-based security analysis.
+
+    Threat intelligence enrichment.
+
+    Automated attack-path analysis.
+
+    Privacy-preserving AI analysis.
+
+    Detection rule optimization.
+
+    Explainable machine-learning techniques.
+
+20.13 Improvement Principle
+
+Future capabilities should be introduced according to measurable requirements and demonstrated system limitations.
+
+The project should avoid adding infrastructure or technologies solely for complexity or appearance.
