@@ -1,11 +1,9 @@
 from datetime import datetime
 from typing import Dict, Any, Optional
-from pydantic import ValidationError
+from pydantic import ValidationError as PydanticValidationError
 
 from app.schemas.event import EventCreate
 from app.core.utils import sanitize_string
-from app.core.errors import ValidationError as CustomValidationError
-from pydantic import ValidationError as PydanticValidationError
 
 
 class EventValidationError(Exception):
