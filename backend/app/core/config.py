@@ -21,8 +21,8 @@ class Settings(BaseSettings):
     HOST: str = "0.0.0.0"
     PORT: int = 8000
 
-    # Database (placeholder for future use)
-    DATABASE_URL: str = "postgresql://user:password@localhost:5432/sentinel"
+    # Database
+    DATABASE_URL: str = "postgresql+asyncpg://sentinel_user:changeme@localhost:5432/sentinel"
 
 
 settings = Settings()

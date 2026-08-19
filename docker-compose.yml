@@ -26,7 +26,7 @@ services:
       dockerfile: Dockerfile
     container_name: sentinel-backend
     environment:
-      DATABASE_URL: postgresql://sentinel_user:${POSTGRES_PASSWORD:-changeme}@postgres:5432/sentinel
+      DATABASE_URL: postgresql+asyncpg://sentinel_user:${POSTGRES_PASSWORD:-changeme}@postgres:5432/sentinel
       ENVIRONMENT: development
     ports:
       - "8000:8000"
