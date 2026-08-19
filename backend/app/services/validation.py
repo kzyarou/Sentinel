@@ -4,6 +4,8 @@ from pydantic import ValidationError
 
 from app.schemas.event import EventCreate
 from app.core.utils import sanitize_string
+from app.core.errors import ValidationError as CustomValidationError
+from pydantic import ValidationError as PydanticValidationError
 
 
 class EventValidationError(Exception):
@@ -44,7 +46,7 @@ class EventValidator:
             # Use Pydantic for schema validation
             event = EventCreate(**event_data)
             return event
-        except ValidationError as e:
+        except PydanticValidationError as e:
             # Extract the first error field for better error messages
             error_field = e.errors()[0].get('loc', ['unknown'])[-1] if e.errors() else 'unknown'
             error_message = e.errors()[0].get('msg', 'Validation failed') if e.errors() else 'Validation failed'
