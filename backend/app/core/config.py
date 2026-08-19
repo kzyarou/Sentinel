@@ -16,6 +16,7 @@ class Settings(BaseSettings):
 
     # API
     API_V1_PREFIX: str = "/api/v1"
+    MAX_PAYLOAD_SIZE: int = 1024 * 1024  # 1MB default
 
     # Server
     HOST: str = "0.0.0.0"
