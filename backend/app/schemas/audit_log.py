@@ -9,7 +9,7 @@ class AuditLogBase(BaseModel):
     resource_type: str = Field(..., max_length=100)
     resource_id: Optional[str] = Field(None, max_length=255)
     request_id: Optional[str] = Field(None, max_length=100)
-    metadata: Optional[Dict[str, Any]] = None
+    audit_metadata: Optional[Dict[str, Any]] = None
 
 
 class AuditLogCreate(AuditLogBase):
@@ -22,7 +22,7 @@ class AuditLogUpdate(BaseModel):
     resource_type: Optional[str] = Field(None, max_length=100)
     resource_id: Optional[str] = Field(None, max_length=255)
     request_id: Optional[str] = Field(None, max_length=100)
-    metadata: Optional[Dict[str, Any]] = None
+    audit_metadata: Optional[Dict[str, Any]] = None
 
 
 class AuditLogInDBBase(AuditLogBase):

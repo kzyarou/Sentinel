@@ -17,7 +17,7 @@ class Detection(Base):
     severity = Column(String(20), nullable=False, index=True)  # LOW, MEDIUM, HIGH, CRITICAL
     confidence = Column(Integer, nullable=False)  # 0-100
     rule_version = Column(String(50), nullable=False, index=True)
-    metadata = Column(JSON, nullable=True)
+    detection_metadata = Column(JSON, nullable=True)
     
     # Relationships
     detection_rule = relationship("DetectionRule", back_populates="detections")

@@ -9,7 +9,7 @@ class DetectionBase(BaseModel):
     severity: str = Field(..., max_length=20)
     confidence: int = Field(..., ge=0, le=100)
     rule_version: str = Field(..., max_length=50)
-    metadata: Optional[Dict[str, Any]] = None
+    detection_metadata: Optional[Dict[str, Any]] = None
 
 
 class DetectionCreate(DetectionBase):
@@ -19,7 +19,7 @@ class DetectionCreate(DetectionBase):
 class DetectionUpdate(BaseModel):
     severity: Optional[str] = Field(None, max_length=20)
     confidence: Optional[int] = Field(None, ge=0, le=100)
-    metadata: Optional[Dict[str, Any]] = None
+    detection_metadata: Optional[Dict[str, Any]] = None
 
 
 class DetectionInDBBase(DetectionBase):
