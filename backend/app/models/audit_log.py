@@ -17,7 +17,7 @@ class AuditLog(Base):
     resource_id = Column(String(255), nullable=True, index=True)
     timestamp = Column(DateTime(timezone=True), server_default=func.now(), nullable=False, index=True)
     request_id = Column(String(100), nullable=True, index=True)
-    metadata = Column(JSON, nullable=True)
+    audit_metadata = Column(JSON, nullable=True)
     
     # Relationships
     user = relationship("User", back_populates="audit_logs")
