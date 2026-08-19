@@ -5,6 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.core.config import settings
 from app.api.v1.api import api_router
 from app.db.session import engine
+from app.api.middleware import PayloadSizeMiddleware
 
 
 @asynccontextmanager
@@ -32,6 +33,12 @@ def create_application() -> FastAPI:
         allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],
+    )
+
+    # Payload size middleware for security
+    app.add_middleware(
+        PayloadSizeMiddleware,
+        max_payload_size=settings.MAX_PAYLOAD_SIZE
     )
 
     # Include API router
