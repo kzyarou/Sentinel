@@ -52,7 +52,10 @@ This project uses Docker for reproducible development environments. See `docker-
 
 ## Documentation
 
-Detailed architecture documentation and architectural decision records (ADRs) are available in the `docs/` directory.
+Detailed architecture documentation and architectural decision records (ADRs) are available in the `docs/` directory:
+
+- [Sentinel System Architecture](docs/Sentinel%20System%20Architecture.txt) - Complete system architecture
+- [Data Model Documentation](docs/Data%20Model%20Documentation.md) - Core data model and relationships
 
 ## License
 
