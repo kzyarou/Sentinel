@@ -10,7 +10,7 @@ backend/
 │   ├── api/           # API endpoints and routing
 │   ├── core/          # Core configuration and utilities
 │   ├── db/            # Database session and connection management
-│   ├── models/        # Database models
+│   ├── models/        # SQLAlchemy ORM models
 │   ├── schemas/       # Pydantic schemas for validation
 │   ├── services/      # Business logic services
 │   ├── detection/     # Detection engine and rules
@@ -173,6 +173,21 @@ Key configuration:
 - **SQLAlchemy** - SQL toolkit and ORM
 - **Alembic** - Database migration tool
 - **AsyncPG** - Async PostgreSQL driver
+
+## Data Models
+
+Sentinel uses SQLAlchemy ORM with the following core entities:
+
+- **Event**: Normalized telemetry from various sources
+- **Detection**: Rule matches against events
+- **DetectionRule**: Versioned security detection definitions
+- **Finding**: Security-relevant investigation results
+- **Evidence**: Information supporting findings
+- **AIAnalysis**: Advisory AI analysis of findings
+- **User**: Authenticated Sentinel users
+- **AuditLog**: Security-sensitive user actions
+
+See [Data Model Documentation](../docs/Data%20Model%20Documentation.md) for detailed information about entities, relationships, and constraints.
 
 ## Development Guidelines
 
