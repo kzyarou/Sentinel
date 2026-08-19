@@ -9,11 +9,13 @@ backend/
 ├── app/
 │   ├── api/           # API endpoints and routing
 │   ├── core/          # Core configuration and utilities
+│   ├── db/            # Database session and connection management
 │   ├── models/        # Database models
 │   ├── schemas/       # Pydantic schemas for validation
 │   ├── services/      # Business logic services
 │   ├── detection/     # Detection engine and rules
 │   └── main.py        # Application entry point
+├── alembic/           # Database migrations
 ├── tests/             # Automated tests
 ├── requirements.txt   # Production dependencies
 ├── requirements-dev.txt # Development dependencies
@@ -49,6 +51,34 @@ pip install -r requirements-dev.txt
 ```bash
 cp .env.example .env
 # Edit .env with your configuration
+```
+
+### Database Setup
+
+#### Using Docker (Recommended)
+
+1. Start PostgreSQL using Docker Compose:
+```bash
+cd ..
+docker compose up -d postgres
+```
+
+2. Run database migrations:
+```bash
+cd backend
+alembic upgrade head
+```
+
+#### Manual PostgreSQL Setup
+
+If you prefer to use a local PostgreSQL installation:
+
+1. Install PostgreSQL
+2. Create a database named `sentinel`
+3. Update `DATABASE_URL` in your `.env` file
+4. Run migrations:
+```bash
+alembic upgrade head
 ```
 
 ## Running the Application
@@ -95,7 +125,32 @@ pytest tests/test_health.py
 ## API Endpoints
 
 ### Health Check
-- `GET /api/v1/health` - Health check endpoint
+- `GET /api/v1/health` - Basic health check endpoint
+- `GET /api/v1/health/ready` - Readiness check with database connectivity
+
+## Database Migrations
+
+This project uses Alembic for database migrations.
+
+### Create a new migration
+```bash
+alembic revision --autogenerate -m "Description of changes"
+```
+
+### Apply migrations
+```bash
+alembic upgrade head
+```
+
+### Rollback migration
+```bash
+alembic downgrade -1
+```
+
+### View migration history
+```bash
+alembic history
+```
 
 ## Configuration
 
@@ -114,7 +169,10 @@ Key configuration:
 - **FastAPI** - Modern, fast web framework for building APIs
 - **Pydantic** - Data validation using Python type annotations
 - **Uvicorn** - ASGI server
-- **PostgreSQL** - Relational database (future implementation)
+- **PostgreSQL** - Relational database
+- **SQLAlchemy** - SQL toolkit and ORM
+- **Alembic** - Database migration tool
+- **AsyncPG** - Async PostgreSQL driver
 
 ## Development Guidelines
 
@@ -132,3 +190,7 @@ Key configuration:
 - Configuration uses environment variables, not hardcoded values
 - CORS is configured (restrict origins in production)
 - No secrets are committed to the repository
+- Database credentials are managed through environment variables
+- Use strong, unique passwords for production databases
+- Database access is restricted to application logic only (no direct frontend access)
+- Use least-privileged database accounts
