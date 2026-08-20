@@ -173,11 +173,18 @@ async def update_finding(
         # Check modify permission
         AuthorizationService.require_finding_modify_permission(user, finding_id)
         
-        # Attempt update
+        # Extract client information for audit logging
+        ip_address = request.client.host if request.client else None
+        user_agent = request.headers.get("user-agent")
+        
+        # Attempt update with audit logging
         updated_finding = await FindingService.update_finding(
             db=db,
             finding_id=finding_id,
-            finding_update=finding_update
+            finding_update=finding_update,
+            user_id=user.get("id"),
+            ip_address=ip_address,
+            user_agent=user_agent
         )
         
         if not updated_finding:

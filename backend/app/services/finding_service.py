@@ -9,6 +9,7 @@ from app.models.detection import Detection
 from app.models.evidence import Evidence
 from app.schemas.finding import FindingCreate, FindingUpdate, Finding as FindingSchema
 from app.core.utils import generate_uuid
+from app.services.audit_service import AuditService
 
 logger = logging.getLogger(__name__)
 
@@ -141,7 +142,10 @@ class FindingService:
     async def update_finding(
         db: AsyncSession,
         finding_id: str,
-        finding_update: FindingUpdate
+        finding_update: FindingUpdate,
+        user_id: Optional[str] = None,
+        ip_address: Optional[str] = None,
+        user_agent: Optional[str] = None
     ) -> Optional[Finding]:
         """
         Update an existing finding.
@@ -150,6 +154,9 @@ class FindingService:
             db: Database session
             finding_id: Finding ID to update
             finding_update: Update data
+            user_id: Optional user ID for audit logging
+            ip_address: Optional IP address for audit logging
+            user_agent: Optional user agent for audit logging
             
         Returns:
             Updated Finding object if found, None otherwise
@@ -158,6 +165,10 @@ class FindingService:
         
         if not db_finding:
             return None
+        
+        # Track modified fields for audit logging
+        modified_fields = []
+        old_status = db_finding.status
         
         # Validate status transition if status is being updated
         if finding_update.status and finding_update.status != db_finding.status:
@@ -169,16 +180,63 @@ class FindingService:
                 raise ValueError(
                     f"Invalid status transition: {db_finding.status} -> {finding_update.status}"
                 )
+            modified_fields.append("status")
         
         # Update fields
         update_data = finding_update.model_dump(exclude_unset=True)
         for field, value in update_data.items():
+            if field != "status":
+                modified_fields.append(field)
             setattr(db_finding, field, value)
         
         await db.commit()
         await db.refresh(db_finding)
         
         logger.info(f"Finding updated: {finding_id}")
+        
+        # Create audit logs for security-sensitive actions
+        if user_id:
+            # Log status change
+            if finding_update.status and finding_update.status != old_status:
+                await AuditService.log_finding_status_change(
+                    db=db,
+                    user_id=user_id,
+                    finding_id=finding_id,
+                    old_status=old_status.value,
+                    new_status=finding_update.status.value,
+                    ip_address=ip_address,
+                    user_agent=user_agent
+                )
+                
+                # Log specific security-sensitive status changes
+                if finding_update.status == FindingStatus.RESOLVED:
+                    await AuditService.log_finding_resolved(
+                        db=db,
+                        user_id=user_id,
+                        finding_id=finding_id,
+                        ip_address=ip_address,
+                        user_agent=user_agent
+                    )
+                elif finding_update.status == FindingStatus.FALSE_POSITIVE:
+                    await AuditService.log_finding_false_positive(
+                        db=db,
+                        user_id=user_id,
+                        finding_id=finding_id,
+                        ip_address=ip_address,
+                        user_agent=user_agent
+                    )
+            
+            # Log general modification if fields were changed
+            if modified_fields and not finding_update.status:
+                await AuditService.log_finding_modified(
+                    db=db,
+                    user_id=user_id,
+                    finding_id=finding_id,
+                    modified_fields=modified_fields,
+                    ip_address=ip_address,
+                    user_agent=user_agent
+                )
+        
         return db_finding
     
     @staticmethod
