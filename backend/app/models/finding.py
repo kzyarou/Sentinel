@@ -1,4 +1,4 @@
-from sqlalchemy import Column, String, DateTime, Integer, Text, ForeignKey, Index, Enum as SQLEnum
+from sqlalchemy import Column, String, DateTime, Integer, Text, ForeignKey, Index, Enum as SQLEnum, JSON
 from sqlalchemy.sql import func
 from sqlalchemy.orm import relationship
 import enum
@@ -28,6 +28,7 @@ class Finding(Base):
     created_timestamp = Column(DateTime(timezone=True), server_default=func.now(), nullable=False, index=True)
     updated_timestamp = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)
     detection_id = Column(String, ForeignKey('detections.id'), nullable=True, index=True)
+    finding_metadata = Column(JSON, nullable=True)  # Preserve detection information
     
     # Relationships
     detection = relationship("Detection", backref="finding")
@@ -38,4 +39,5 @@ class Finding(Base):
     __table_args__ = (
         Index('idx_findings_status_timestamp', 'status', 'created_timestamp'),
         Index('idx_findings_severity_timestamp', 'severity', 'created_timestamp'),
+        Index('idx_findings_detection_status', 'detection_id', 'status'),
     )
