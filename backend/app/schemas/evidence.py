@@ -17,6 +17,7 @@ class EvidenceCreate(EvidenceBase):
 
 class EvidenceUpdate(BaseModel):
     finding_id: Optional[str] = None
+    detection_id: Optional[str] = None
     event_id: Optional[str] = None
     evidence_type: Optional[str] = Field(None, max_length=100)
     evidence_content: Optional[Dict[str, Any]] = None
