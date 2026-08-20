@@ -122,6 +122,11 @@ Run specific test file:
 pytest tests/test_health.py
 ```
 
+Run finding tests:
+```bash
+pytest tests/test_findings.py
+```
+
 ## API Endpoints
 
 ### Health Check
@@ -131,6 +136,74 @@ pytest tests/test_health.py
 ### Event Ingestion
 - `POST /api/v1/events` - Ingest security events for processing
 - `GET /api/v1/events/{event_id}` - Retrieve a specific event by ID
+
+### Findings Management
+- `GET /api/v1/findings` - Retrieve findings with filtering and pagination
+- `GET /api/v1/findings/{finding_id}` - Retrieve a specific finding by ID
+- `PATCH /api/v1/findings/{finding_id}` - Update a finding (status, fields)
+- `GET /api/v1/findings/{finding_id}/detection` - Retrieve detection for a finding
+- `GET /api/v1/findings/{finding_id}/evidence` - Retrieve evidence for a finding
+
+#### Finding Endpoints
+
+**GET /api/v1/findings**
+
+Retrieve findings with optional filtering and pagination.
+
+**Query Parameters:**
+- `skip` (optional): Number of results to skip (default: 0)
+- `limit` (optional): Maximum number of results to return (default: 100, max: 1000)
+- `severity` (optional): Filter by severity (LOW, MEDIUM, HIGH, CRITICAL)
+- `status` (optional): Filter by status (OPEN, INVESTIGATING, RESOLVED, FALSE_POSITIVE)
+
+**Authentication:** Required (X-User-ID header)
+
+**Response:**
+```json
+[
+  {
+    "id": "finding-id",
+    "title": "Security Finding Title",
+    "description": "Description of the finding",
+    "severity": "HIGH",
+    "confidence": 85,
+    "status": "OPEN",
+    "detection_id": "detection-id",
+    "finding_metadata": {},
+    "created_timestamp": "2024-01-01T00:00:00Z",
+    "updated_timestamp": "2024-01-01T00:00:00Z"
+  }
+]
+```
+
+**PATCH /api/v1/findings/{finding_id}**
+
+Update a finding. Status transitions are validated by the backend.
+
+**Authentication:** Required (X-User-ID header)
+**Authorization:** Role-based (admin, security_analyst, analyst can modify)
+
+**Request Body:**
+```json
+{
+  "status": "INVESTIGATING",
+  "description": "Updated description"
+}
+```
+
+**Valid Status Transitions:**
+- OPEN → INVESTIGATING, FALSE_POSITIVE
+- INVESTIGATING → RESOLVED, FALSE_POSITIVE, OPEN
+- RESOLVED → OPEN, INVESTIGATING
+- FALSE_POSITIVE → OPEN, INVESTIGATING
+
+**Response:** Updated finding object
+
+**Error Responses:**
+- `401 Unauthorized` - Authentication required
+- `403 Forbidden` - Insufficient permissions
+- `404 Not Found` - Finding not found
+- `400 Bad Request` - Invalid status transition
 
 #### Event Ingestion Endpoint
 
@@ -323,6 +396,31 @@ The backend uses a service-oriented architecture for business logic:
   - Generates unique event IDs
   - Provides query methods (by ID, source, type, host)
   - Converts between models and schemas
+
+### Finding Services
+
+- **FindingService** (`app/services/finding_service.py`)
+  - Manages finding CRUD operations and lifecycle
+  - Validates and enforces status transitions
+  - Creates findings from detections with metadata preservation
+  - Manages finding-detection relationships
+  - Integrates audit logging for security-sensitive actions
+  - Supports filtering by severity and status
+
+- **AuditService** (`app/services/audit_service.py`)
+  - Creates audit log entries for security-sensitive actions
+  - Logs finding status changes, resolutions, and false positive markings
+  - Records modified fields and user context
+  - Maintains audit trail for compliance and investigation
+
+### Authorization Services
+
+- **AuthorizationService** (`app/core/authorization.py`)
+  - Handles authentication and authorization checks
+  - Implements role-based access control (admin, security_analyst, analyst, viewer)
+  - Enforces finding view and modify permissions
+  - Provides backend-authorized access control (ADR-010)
+  - Logs authorization failures for security monitoring
 
 ### Error Handling
 
