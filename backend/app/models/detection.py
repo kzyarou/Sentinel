@@ -23,6 +23,8 @@ class Detection(Base):
     detection_rule = relationship("DetectionRule", back_populates="detections")
     event = relationship("Event", back_populates="detections")
     evidence = relationship("Evidence", back_populates="detection")
+    finding = relationship("Finding", back_populates="detection", uselist=False)
+    finding = relationship("Finding", back_populates="detection", uselist=False)
     
     # Indexes for common query patterns
     __table_args__ = (

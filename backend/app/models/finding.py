@@ -31,7 +31,7 @@ class Finding(Base):
     finding_metadata = Column(JSON, nullable=True)  # Preserve detection information
     
     # Relationships
-    detection = relationship("Detection", backref="finding")
+    detection = relationship("Detection", back_populates="finding")
     evidence = relationship("Evidence", back_populates="finding", cascade="all, delete-orphan")
     ai_analyses = relationship("AIAnalysis", back_populates="finding", cascade="all, delete-orphan")
     
