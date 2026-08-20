@@ -7,6 +7,11 @@ def generate_event_id() -> str:
     return str(uuid.uuid4())
 
 
+def generate_uuid() -> str:
+    """Generate a unique UUID using UUID4."""
+    return str(uuid.uuid4())
+
+
 def validate_event_id(event_id: str) -> bool:
     """Validate that a string is a valid UUID."""
     try:
