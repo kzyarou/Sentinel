@@ -22,6 +22,7 @@ class Detection(Base):
     # Relationships
     detection_rule = relationship("DetectionRule", back_populates="detections")
     event = relationship("Event", back_populates="detections")
+    evidence = relationship("Evidence", back_populates="detection")
     
     # Indexes for common query patterns
     __table_args__ = (
