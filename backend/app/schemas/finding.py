@@ -1,6 +1,6 @@
 from pydantic import BaseModel, Field
 from datetime import datetime
-from typing import Optional
+from typing import Optional, Dict, Any
 from enum import Enum
 
 
@@ -18,6 +18,7 @@ class FindingBase(BaseModel):
     confidence: int = Field(..., ge=0, le=100)
     status: FindingStatus = FindingStatus.OPEN
     detection_id: Optional[str] = None
+    finding_metadata: Optional[Dict[str, Any]] = None
 
 
 class FindingCreate(FindingBase):
@@ -31,6 +32,7 @@ class FindingUpdate(BaseModel):
     confidence: Optional[int] = Field(None, ge=0, le=100)
     status: Optional[FindingStatus] = None
     detection_id: Optional[str] = None
+    finding_metadata: Optional[Dict[str, Any]] = None
 
 
 class FindingInDBBase(FindingBase):
