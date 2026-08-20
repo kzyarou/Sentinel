@@ -7,6 +7,7 @@ from app.schemas.event import EventCreate, Event as EventSchema
 from app.services.validation import EventValidator, EventValidationError
 from app.services.normalization import EventNormalizer
 from app.services.event_service import EventService
+from app.services.event_processing_service import EventProcessingService
 from app.core.errors import (
     IngestionError,
     handle_ingestion_error
@@ -62,7 +63,10 @@ async def ingest_event(
         # Step 6: Persist event
         db_event = await EventService.create_event(db, normalized_event)
         
-        # Step 7: Log successful ingestion
+        # Step 7: Process event through detection engine
+        await EventProcessingService.process_event_with_detection(db, db_event)
+        
+        # Step 8: Log successful ingestion
         logger.info(f"Event ingested successfully: {db_event.id}")
         
         return {
