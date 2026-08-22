@@ -20,7 +20,7 @@ ai_analysis_service = AIAnalysisService(ai_provider)
 
 @router.post("/findings/{finding_id}/analysis", response_model=AIAnalysisResponse)
 async def analyze_finding(
-    finding_id: int,
+    finding_id: str,
     request: AIAnalysisRequest,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
@@ -91,9 +91,9 @@ async def analyze_finding(
         )
 
 
-@router.get("/api/v1/findings/{finding_id}/analysis", response_model=AIAnalysisResponse)
+@router.get("/findings/{finding_id}/analysis", response_model=AIAnalysisResponse)
 async def get_finding_analysis(
-    finding_id: int,
+    finding_id: str,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
@@ -153,4 +153,42 @@ async def get_finding_analysis(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Unexpected error retrieving analysis: {str(e)}"
+        )
+
+
+@router.get("/ai-analysis/stats")
+async def get_ai_analysis_stats(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Get AI analysis error statistics.
+    
+    Args:
+        db: Database session
+        current_user: Current authenticated user
+        
+    Returns:
+        AI analysis error statistics
+        
+    Raises:
+        HTTPException: If user not authorized
+    """
+    try:
+        # Check if user is admin (simplified for now)
+        if current_user.role != "ADMIN":
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Only administrators can access AI analysis statistics"
+            )
+        
+        stats = ai_analysis_service.get_error_stats()
+        return stats
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Unexpected error retrieving statistics: {str(e)}"
         )

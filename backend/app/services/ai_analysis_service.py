@@ -15,6 +15,7 @@ from app.ai.provider_interface import (
 )
 from app.ai.prompt_constructor import PromptConstructor
 from app.ai.response_validator import ResponseValidator
+from app.ai.error_handler import AIErrorHandler
 from app.models.finding import Finding
 from app.models.evidence import Evidence
 from app.models.detection import Detection
@@ -31,6 +32,7 @@ class AIAnalysisService:
         ai_provider: AIProviderInterface,
         prompt_constructor: Optional[PromptConstructor] = None,
         response_validator: Optional[ResponseValidator] = None,
+        error_handler: Optional[AIErrorHandler] = None,
         config: Optional[Dict[str, Any]] = None
     ):
         """
@@ -40,11 +42,13 @@ class AIAnalysisService:
             ai_provider: AI provider instance
             prompt_constructor: Optional prompt constructor (creates default if not provided)
             response_validator: Optional response validator (creates default if not provided)
+            error_handler: Optional error handler (creates default if not provided)
             config: Optional configuration dictionary
         """
         self.ai_provider = ai_provider
         self.prompt_constructor = prompt_constructor or PromptConstructor(config)
         self.response_validator = response_validator or ResponseValidator(config)
+        self.error_handler = error_handler or AIErrorHandler(config)
         self.config = config or {}
         self.enable_analysis = self.config.get("enable_analysis", True)
         self.max_retries = self.config.get("max_retries", 2)
@@ -52,7 +56,7 @@ class AIAnalysisService:
     async def analyze_finding(
         self,
         db: Session,
-        finding_id: int,
+        finding_id: str,
         force_refresh: bool = False
     ) -> AIAnalysis:
         """
@@ -210,7 +214,7 @@ class AIAnalysisService:
         detection_data: Optional[Dict[str, Any]]
     ) -> Dict[str, Any]:
         """
-        Call AI provider with retry logic.
+        Call AI provider with error handling and retry logic.
         
         Args:
             finding_data: Finding data
@@ -223,53 +227,13 @@ class AIAnalysisService:
         Raises:
             AIProviderError: If all retries fail
         """
-        last_error = None
-        
-        for attempt in range(self.max_retries + 1):
-            try:
-                if attempt > 0:
-                    logger.info(f"Retry attempt {attempt} for AI analysis")
-                
-                result = await self.ai_provider.analyze_finding(
-                    finding_data,
-                    evidence_data,
-                    detection_data
-                )
-                
-                return result
-                
-            except AIProviderTimeoutError as e:
-                last_error = e
-                logger.warning(f"AI provider timeout on attempt {attempt + 1}")
-                # Retry timeouts
-                continue
-                
-            except AIProviderRateLimitError as e:
-                last_error = e
-                logger.warning(f"AI provider rate limit on attempt {attempt + 1}")
-                # Don't retry rate limits
-                raise
-                
-            except AIProviderAuthenticationError as e:
-                last_error = e
-                logger.error(f"AI provider authentication error: {str(e)}")
-                # Don't retry authentication errors
-                raise
-                
-            except AIProviderNetworkError as e:
-                last_error = e
-                logger.warning(f"AI provider network error on attempt {attempt + 1}")
-                # Retry network errors
-                continue
-                
-            except AIProviderError as e:
-                last_error = e
-                logger.warning(f"AI provider error on attempt {attempt + 1}: {str(e)}")
-                # Retry general errors
-                continue
-        
-        # All retries failed
-        raise AIProviderError(f"AI analysis failed after {self.max_retries + 1} attempts: {str(last_error)}")
+        # Use error handler for circuit breaker and comprehensive error handling
+        return await self.error_handler.handle_ai_call(
+            self.ai_provider.analyze_finding,
+            finding_data,
+            evidence_data,
+            detection_data
+        )
     
     def _create_ai_analysis(
         self,
@@ -346,3 +310,16 @@ class AIAnalysisService:
         return db.query(AIAnalysis).filter(
             AIAnalysis.finding_id == finding_id
         ).order_by(AIAnalysis.created_at.desc()).first()
+    
+    def get_error_stats(self) -> Dict[str, Any]:
+        """
+        Get error statistics from the error handler.
+        
+        Returns:
+            Dictionary with error statistics
+        """
+        return self.error_handler.get_error_stats()
+    
+    def reset_error_stats(self):
+        """Reset error statistics in the error handler."""
+        self.error_handler.reset_stats()
