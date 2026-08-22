@@ -1,6 +1,6 @@
 from pydantic import BaseModel, Field
 from datetime import datetime
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, List
 from enum import Enum
 
 
@@ -11,35 +11,28 @@ class AIAnalysisStatus(str, Enum):
     FAILED = "FAILED"
 
 
-class AIAnalysisBase(BaseModel):
-    finding_id: str
-    provider: str = Field(..., max_length=100)
-    model: str = Field(..., max_length=100)
-    prompt_version: Optional[str] = Field(None, max_length=50)
-    analysis_result: Dict[str, Any]
-    status: AIAnalysisStatus = AIAnalysisStatus.PENDING
+class AIAnalysisRequest(BaseModel):
+    """Request schema for AI analysis."""
+    force_refresh: bool = False
 
 
-class AIAnalysisCreate(AIAnalysisBase):
-    pass
-
-
-class AIAnalysisUpdate(BaseModel):
-    finding_id: Optional[str] = None
-    provider: Optional[str] = Field(None, max_length=100)
-    model: Optional[str] = Field(None, max_length=100)
-    prompt_version: Optional[str] = Field(None, max_length=50)
-    analysis_result: Optional[Dict[str, Any]] = None
-    status: Optional[AIAnalysisStatus] = None
-
-
-class AIAnalysisInDBBase(AIAnalysisBase):
+class AIAnalysisResponse(BaseModel):
+    """Response schema for AI analysis."""
     id: str
-    created_timestamp: datetime
+    finding_id: str
+    provider_name: str
+    model_name: str
+    model_version: Optional[str] = None
+    summary: Optional[str] = None
+    observed_indicators: List[Dict[str, Any]] = []
+    possible_interpretation: Optional[str] = None
+    recommended_investigation_steps: List[str] = []
+    confidence_notes: Optional[str] = None
+    risk_level: Optional[str] = None
+    urgency: Optional[str] = None
+    investigation_priority: Optional[str] = None
+    created_at: datetime
+    metadata: Optional[Dict[str, Any]] = None
 
     class Config:
         from_attributes = True
-
-
-class AIAnalysis(AIAnalysisInDBBase):
-    pass
