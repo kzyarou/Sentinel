@@ -1,8 +1,9 @@
 from typing import Dict, Any
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.v1.endpoints.dependencies import get_db, get_current_user
+from app.db.session import get_db
+from app.api.v1.endpoints.dependencies import get_current_user
 from app.core.authorization import AuthorizationService
 from app.models.user import User
 from app.schemas.ai_analysis import AIAnalysisResponse, AIAnalysisRequest
@@ -22,8 +23,8 @@ ai_analysis_service = AIAnalysisService(ai_provider)
 async def analyze_finding(
     finding_id: str,
     request: AIAnalysisRequest,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
 ):
     """
     Analyze a finding using AI.
@@ -31,8 +32,8 @@ async def analyze_finding(
     Args:
         finding_id: ID of the finding to analyze
         request: Analysis request options
-        db: Database session
         current_user: Current authenticated user
+        db: Database session
         
     Returns:
         AI analysis response
@@ -41,13 +42,8 @@ async def analyze_finding(
         HTTPException: If analysis fails or user not authorized
     """
     try:
-        # Check authorization
-        auth_service = AuthorizationService(db)
-        if not auth_service.can_user_access_finding(current_user.id, finding_id):
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="User not authorized to access this finding"
-            )
+        # Check authorization for AI analysis
+        AuthorizationService.require_ai_analysis_permission(current_user)
         
         # Perform AI analysis
         ai_analysis = await ai_analysis_service.analyze_finding(
@@ -94,16 +90,16 @@ async def analyze_finding(
 @router.get("/findings/{finding_id}/analysis", response_model=AIAnalysisResponse)
 async def get_finding_analysis(
     finding_id: str,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
 ):
     """
     Get the most recent AI analysis for a finding.
     
     Args:
         finding_id: ID of the finding
-        db: Database session
         current_user: Current authenticated user
+        db: Database session
         
     Returns:
         AI analysis response
@@ -112,13 +108,8 @@ async def get_finding_analysis(
         HTTPException: If analysis not found or user not authorized
     """
     try:
-        # Check authorization
-        auth_service = AuthorizationService(db)
-        if not auth_service.can_user_access_finding(current_user.id, finding_id):
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="User not authorized to access this finding"
-            )
+        # Check authorization for AI analysis
+        AuthorizationService.require_ai_analysis_permission(current_user)
         
         # Get existing analysis
         ai_analysis = ai_analysis_service.get_analysis_for_finding(db, finding_id)
@@ -158,15 +149,15 @@ async def get_finding_analysis(
 
 @router.get("/ai-analysis/stats")
 async def get_ai_analysis_stats(
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
 ):
     """
     Get AI analysis error statistics.
     
     Args:
-        db: Database session
         current_user: Current authenticated user
+        db: Database session
         
     Returns:
         AI analysis error statistics
@@ -175,12 +166,8 @@ async def get_ai_analysis_stats(
         HTTPException: If user not authorized
     """
     try:
-        # Check if user is admin (simplified for now)
-        if current_user.role != "ADMIN":
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="Only administrators can access AI analysis statistics"
-            )
+        # Check if user is admin
+        AuthorizationService.require_audit_log_permission(current_user)
         
         stats = ai_analysis_service.get_error_stats()
         return stats

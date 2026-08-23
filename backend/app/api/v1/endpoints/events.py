@@ -12,6 +12,8 @@ from app.core.errors import (
     IngestionError,
     handle_ingestion_error
 )
+from app.api.v1.endpoints.dependencies import get_current_user, get_current_user_optional
+from app.models.user import User
 import logging
 
 logger = logging.getLogger(__name__)
@@ -23,6 +25,7 @@ router = APIRouter()
 async def ingest_event(
     event_data: Dict[str, Any],
     request: Request,
+    current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
     """
@@ -34,6 +37,7 @@ async def ingest_event(
     Args:
         event_data: Raw event data from request body
         request: FastAPI request object
+        current_user: Current authenticated user
         db: Database session
         
     Returns:
@@ -99,12 +103,17 @@ async def ingest_event(
 
 
 @router.get("/events/{event_id}", response_model=EventSchema)
-async def get_event(event_id: str, db: AsyncSession = Depends(get_db)):
+async def get_event(
+    event_id: str, 
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
     """
     Retrieve an event by ID.
     
     Args:
         event_id: Event ID to retrieve
+        current_user: Current authenticated user
         db: Database session
         
     Returns:
