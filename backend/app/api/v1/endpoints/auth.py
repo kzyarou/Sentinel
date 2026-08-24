@@ -8,6 +8,7 @@ from app.services.auth_service import AuthService
 from app.services.audit_service import AuditService
 from app.api.v1.endpoints.dependencies import get_current_user
 from app.models.user import User
+from app.core.request_id import get_request_id
 import logging
 
 logger = logging.getLogger(__name__)
@@ -35,11 +36,12 @@ async def login(
     Raises:
         HTTPException: If authentication fails
     """
+    # Extract client information for audit logging
+    ip_address = request.client.host if request.client else None
+    user_agent = request.headers.get("user-agent")
+    request_id = get_request_id(request)
+    
     try:
-        # Extract client information for audit logging
-        ip_address = request.client.host if request.client else None
-        user_agent = request.headers.get("user-agent")
-        
         # Attempt authentication
         result = await AuthService.login_user(db, login_data)
         
@@ -49,6 +51,7 @@ async def login(
             db=db,
             user_id=user_id,
             username=login_data.username,
+            request_id=request_id,
             ip_address=ip_address,
             user_agent=user_agent
         )
@@ -65,6 +68,7 @@ async def login(
         await AuditService.log_authentication_failure(
             db=db,
             username=login_data.username,
+            request_id=request_id,
             ip_address=ip_address,
             user_agent=user_agent
         )
@@ -203,11 +207,13 @@ async def logout(
         # Extract client information for audit logging
         ip_address = request.client.host if request.client else None
         user_agent = request.headers.get("user-agent")
+        request_id = get_request_id(request)
         
         # Log user logout
         await AuditService.log_user_logout(
             db=db,
             user_id=current_user.id,
+            request_id=request_id,
             ip_address=ip_address,
             user_agent=user_agent
         )
