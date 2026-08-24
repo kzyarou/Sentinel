@@ -114,25 +114,40 @@ async def register(
         # Extract client information for audit logging
         ip_address = request.client.host if request.client else None
         user_agent = request.headers.get("user-agent")
+        request_id = get_request_id(request)
         
-        # Create user
+        # Create user with critical audit logging
         user = await AuthService.create_user(db, user_data)
         
-        # Log user creation
-        await AuditService.create_audit_log(
-            db=db,
-            user_id=user.id,
-            action="user_created",
-            resource_type="user",
-            resource_id=user.id,
-            details={
-                "username": user.username,
-                "email": user.email,
-                "role": user.role.value
-            },
-            ip_address=ip_address,
-            user_agent=user_agent
-        )
+        # Log user creation with critical audit logging (prevents registration if audit fails)
+        try:
+            await AuditService.create_audit_log_critical(
+                db=db,
+                user_id=user.id,
+                action="user.created",
+                action_category=AuditActionCategory.USER_ADMINISTRATION,
+                resource_type="user",
+                resource_id=user.id,
+                result=AuditResult.SUCCESS,
+                request_id=request_id,
+                metadata={
+                    "username": user.username,
+                    "email": user.email,
+                    "role": user.role.value
+                },
+                ip_address=ip_address,
+                user_agent=user_agent
+            )
+        except Exception as audit_error:
+            # Rollback user creation if audit logging fails
+            await db.rollback()
+            raise HTTPException(
+                status_code=500,
+                detail={
+                    "error": "audit_failure",
+                    "message": "User registration failed due to audit logging error"
+                }
+            )
         
         logger.info(f"User registered: {user.username}")
         

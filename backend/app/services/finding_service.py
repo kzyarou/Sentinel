@@ -198,50 +198,67 @@ class FindingService:
         
         # Create audit logs for security-sensitive actions
         if user_id:
-            # Log status change
+            # Log status change with non-critical audit logging
             if finding_update.status and finding_update.status != old_status:
-                await AuditService.log_finding_status_change(
-                    db=db,
-                    user_id=user_id,
-                    finding_id=finding_id,
-                    old_status=old_status.value,
-                    new_status=finding_update.status.value,
-                    request_id=request_id,
-                    ip_address=ip_address,
-                    user_agent=user_agent
-                )
+                try:
+                    await AuditService.log_finding_status_change(
+                        db=db,
+                        user_id=user_id,
+                        finding_id=finding_id,
+                        old_status=old_status.value,
+                        new_status=finding_update.status.value,
+                        request_id=request_id,
+                        ip_address=ip_address,
+                        user_agent=user_agent
+                    )
+                except Exception as audit_error:
+                    logger.warning(f"Failed to log finding status change audit: {str(audit_error)}")
+                    # Non-critical, continue with operation
                 
                 # Log specific security-sensitive status changes
                 if finding_update.status == FindingStatus.RESOLVED:
-                    await AuditService.log_finding_resolved(
-                        db=db,
-                        user_id=user_id,
-                        finding_id=finding_id,
-                        request_id=request_id,
-                        ip_address=ip_address,
-                        user_agent=user_agent
-                    )
+                    try:
+                        await AuditService.log_finding_resolved(
+                            db=db,
+                            user_id=user_id,
+                            finding_id=finding_id,
+                            request_id=request_id,
+                            ip_address=ip_address,
+                            user_agent=user_agent
+                        )
+                    except Exception as audit_error:
+                        logger.warning(f"Failed to log finding resolution audit: {str(audit_error)}")
+                        # Non-critical, continue with operation
+                
                 elif finding_update.status == FindingStatus.FALSE_POSITIVE:
-                    await AuditService.log_finding_false_positive(
-                        db=db,
-                        user_id=user_id,
-                        finding_id=finding_id,
-                        request_id=request_id,
-                        ip_address=ip_address,
-                        user_agent=user_agent
-                    )
+                    try:
+                        await AuditService.log_finding_false_positive(
+                            db=db,
+                            user_id=user_id,
+                            finding_id=finding_id,
+                            request_id=request_id,
+                            ip_address=ip_address,
+                            user_agent=user_agent
+                        )
+                    except Exception as audit_error:
+                        logger.warning(f"Failed to log false positive audit: {str(audit_error)}")
+                        # Non-critical, continue with operation
             
             # Log general modification if fields were changed
             if modified_fields and not finding_update.status:
-                await AuditService.log_finding_modified(
-                    db=db,
-                    user_id=user_id,
-                    finding_id=finding_id,
-                    modified_fields=modified_fields,
-                    request_id=request_id,
-                    ip_address=ip_address,
-                    user_agent=user_agent
-                )
+                try:
+                    await AuditService.log_finding_modified(
+                        db=db,
+                        user_id=user_id,
+                        finding_id=finding_id,
+                        modified_fields=modified_fields,
+                        request_id=request_id,
+                        ip_address=ip_address,
+                        user_agent=user_agent
+                    )
+                except Exception as audit_error:
+                    logger.warning(f"Failed to log finding modification audit: {str(audit_error)}")
+                    # Non-critical, continue with operation
         
         return db_finding
     

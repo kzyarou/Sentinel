@@ -370,3 +370,68 @@ class AuditService:
             ip_address=ip_address,
             user_agent=user_agent
         )
+    
+    @staticmethod
+    async def create_audit_log_critical(
+        db: AsyncSession,
+        user_id: Optional[str],
+        action: str,
+        action_category: AuditActionCategory,
+        resource_type: str,
+        resource_id: Optional[str],
+        result: AuditResult = AuditResult.SUCCESS,
+        request_id: Optional[str] = None,
+        metadata: Optional[Dict[str, Any]] = None,
+        ip_address: Optional[str] = None,
+        user_agent: Optional[str] = None
+    ) -> AuditLog:
+        """
+        Create an audit log entry with critical failure handling.
+        
+        For critical security-sensitive operations, this method ensures that
+        audit logging succeeds before allowing the operation to complete.
+        If audit logging fails, the operation should be prevented.
+        
+        Args:
+            db: Database session
+            user_id: ID of the user performing the action (None for system events)
+            action: Action performed
+            action_category: Category of the action
+            resource_type: Type of resource
+            resource_id: ID of the resource
+            result: Result of the action
+            request_id: Request ID for correlation
+            metadata: Additional metadata about the action (sanitized)
+            ip_address: IP address of the user
+            user_agent: User agent string
+            
+        Returns:
+            Created AuditLog object
+            
+        Raises:
+            Exception: If audit logging fails (operation should be prevented)
+        """
+        try:
+            return await AuditService.create_audit_log(
+                db=db,
+                user_id=user_id,
+                action=action,
+                action_category=action_category,
+                resource_type=resource_type,
+                resource_id=resource_id,
+                result=result,
+                request_id=request_id,
+                metadata=metadata,
+                ip_address=ip_address,
+                user_agent=user_agent
+            )
+        except Exception as e:
+            logger.error(
+                f"CRITICAL: Failed to create audit log for security-sensitive operation: "
+                f"action={action}, resource={resource_type}/{resource_id}, error={str(e)}"
+            )
+            # Re-raise to prevent the operation from completing
+            raise Exception(
+                f"Security audit logging failed. Operation prevented to maintain accountability. "
+                f"Action: {action}, Resource: {resource_type}/{resource_id}"
+            ) from e
