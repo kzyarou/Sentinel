@@ -145,7 +145,8 @@ class FindingService:
         finding_update: FindingUpdate,
         user_id: Optional[str] = None,
         ip_address: Optional[str] = None,
-        user_agent: Optional[str] = None
+        user_agent: Optional[str] = None,
+        request_id: Optional[str] = None
     ) -> Optional[Finding]:
         """
         Update an existing finding.
@@ -157,6 +158,7 @@ class FindingService:
             user_id: Optional user ID for audit logging
             ip_address: Optional IP address for audit logging
             user_agent: Optional user agent for audit logging
+            request_id: Optional request ID for correlation
             
         Returns:
             Updated Finding object if found, None otherwise
@@ -204,6 +206,7 @@ class FindingService:
                     finding_id=finding_id,
                     old_status=old_status.value,
                     new_status=finding_update.status.value,
+                    request_id=request_id,
                     ip_address=ip_address,
                     user_agent=user_agent
                 )
@@ -214,6 +217,7 @@ class FindingService:
                         db=db,
                         user_id=user_id,
                         finding_id=finding_id,
+                        request_id=request_id,
                         ip_address=ip_address,
                         user_agent=user_agent
                     )
@@ -222,6 +226,7 @@ class FindingService:
                         db=db,
                         user_id=user_id,
                         finding_id=finding_id,
+                        request_id=request_id,
                         ip_address=ip_address,
                         user_agent=user_agent
                     )
@@ -233,6 +238,7 @@ class FindingService:
                     user_id=user_id,
                     finding_id=finding_id,
                     modified_fields=modified_fields,
+                    request_id=request_id,
                     ip_address=ip_address,
                     user_agent=user_agent
                 )

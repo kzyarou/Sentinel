@@ -9,6 +9,7 @@ from app.models.finding import FindingStatus as FindingStatusEnum
 from app.core.authorization import AuthorizationService
 from app.api.v1.endpoints.dependencies import get_current_user
 from app.models.user import User
+from app.core.request_id import get_request_id
 import logging
 
 logger = logging.getLogger(__name__)
@@ -171,6 +172,7 @@ async def update_finding(
         # Extract client information for audit logging
         ip_address = request.client.host if request.client else None
         user_agent = request.headers.get("user-agent")
+        request_id = get_request_id(request)
         
         # Attempt update with audit logging
         updated_finding = await FindingService.update_finding(
@@ -179,7 +181,8 @@ async def update_finding(
             finding_update=finding_update,
             user_id=current_user.id,
             ip_address=ip_address,
-            user_agent=user_agent
+            user_agent=user_agent,
+            request_id=request_id
         )
         
         if not updated_finding:
