@@ -63,6 +63,156 @@ class AuditService:
         return audit_log
     
     @staticmethod
+    async def log_authentication_success(
+        db: AsyncSession,
+        user_id: str,
+        username: str,
+        ip_address: Optional[str] = None,
+        user_agent: Optional[str] = None
+    ) -> AuditLog:
+        """
+        Log a successful authentication event.
+        
+        Args:
+            db: Database session
+            user_id: ID of the authenticated user
+            username: Username of the authenticated user
+            ip_address: IP address of the user
+            user_agent: User agent string
+            
+        Returns:
+            Created AuditLog object
+        """
+        details = {
+            "username": username,
+            "timestamp": datetime.utcnow().isoformat()
+        }
+        
+        return await AuditService.create_audit_log(
+            db=db,
+            user_id=user_id,
+            action="user_authenticated",
+            resource_type="user",
+            resource_id=user_id,
+            details=details,
+            ip_address=ip_address,
+            user_agent=user_agent
+        )
+    
+    @staticmethod
+    async def log_authentication_failure(
+        db: AsyncSession,
+        username: str,
+        ip_address: Optional[str] = None,
+        user_agent: Optional[str] = None
+    ) -> AuditLog:
+        """
+        Log a failed authentication event.
+        
+        Args:
+            db: Database session
+            username: Username that was attempted
+            ip_address: IP address of the user
+            user_agent: User agent string
+            
+        Returns:
+            Created AuditLog object
+        """
+        details = {
+            "username": username,
+            "timestamp": datetime.utcnow().isoformat()
+        }
+        
+        return await AuditService.create_audit_log(
+            db=db,
+            user_id="unknown",
+            action="authentication_failed",
+            resource_type="user",
+            resource_id="unknown",
+            details=details,
+            ip_address=ip_address,
+            user_agent=user_agent
+        )
+    
+    @staticmethod
+    async def log_user_logout(
+        db: AsyncSession,
+        user_id: str,
+        ip_address: Optional[str] = None,
+        user_agent: Optional[str] = None
+    ) -> AuditLog:
+        """
+        Log a user logout event.
+        
+        Args:
+            db: Database session
+            user_id: ID of the user logging out
+            ip_address: IP address of the user
+            user_agent: User agent string
+            
+        Returns:
+            Created AuditLog object
+        """
+        details = {
+            "timestamp": datetime.utcnow().isoformat()
+        }
+        
+        return await AuditService.create_audit_log(
+            db=db,
+            user_id=user_id,
+            action="user_logout",
+            resource_type="user",
+            resource_id=user_id,
+            details=details,
+            ip_address=ip_address,
+            user_agent=user_agent
+        )
+    
+    @staticmethod
+    async def log_authorization_failure(
+        db: AsyncSession,
+        user_id: str,
+        action: str,
+        resource_type: str,
+        resource_id: str,
+        required_permission: str,
+        ip_address: Optional[str] = None,
+        user_agent: Optional[str] = None
+    ) -> AuditLog:
+        """
+        Log an authorization failure event.
+        
+        Args:
+            db: Database session
+            user_id: ID of the user who was denied access
+            action: Action that was attempted
+            resource_type: Type of resource accessed
+            resource_id: ID of the resource
+            required_permission: Permission that was required
+            ip_address: IP address of the user
+            user_agent: User agent string
+            
+        Returns:
+            Created AuditLog object
+        """
+        details = {
+            "action": action,
+            "required_permission": required_permission,
+            "timestamp": datetime.utcnow().isoformat()
+        }
+        
+        return await AuditService.create_audit_log(
+            db=db,
+            user_id=user_id,
+            action="authorization_failed",
+            resource_type=resource_type,
+            resource_id=resource_id,
+            details=details,
+            ip_address=ip_address,
+            user_agent=user_agent
+        )
+    
+    @staticmethod
     async def log_finding_status_change(
         db: AsyncSession,
         user_id: str,

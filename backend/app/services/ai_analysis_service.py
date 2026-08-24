@@ -2,7 +2,8 @@ from typing import Dict, Any, List, Optional
 import logging
 from datetime import datetime
 
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select
 
 from app.ai.provider_interface import (
     AIProviderInterface,
@@ -55,7 +56,7 @@ class AIAnalysisService:
         
     async def analyze_finding(
         self,
-        db: Session,
+        db: AsyncSession,
         finding_id: str,
         force_refresh: bool = False
     ) -> AIAnalysis:
@@ -80,15 +81,19 @@ class AIAnalysisService:
         logger.info(f"Starting AI analysis for finding {finding_id}")
         
         # Fetch finding with related data
-        finding = db.query(Finding).filter(Finding.id == finding_id).first()
+        result = await db.execute(select(Finding).filter(Finding.id == finding_id))
+        finding = result.scalar_one_or_none()
         if not finding:
             raise ValueError(f"Finding {finding_id} not found")
         
         # Check if recent analysis exists
         if not force_refresh:
-            existing_analysis = db.query(AIAnalysis).filter(
-                AIAnalysis.finding_id == finding_id
-            ).order_by(AIAnalysis.created_at.desc()).first()
+            result = await db.execute(
+                select(AIAnalysis)
+                .filter(AIAnalysis.finding_id == finding_id)
+                .order_by(AIAnalysis.created_at.desc())
+            )
+            existing_analysis = result.scalar_one_or_none()
             
             if existing_analysis and self._is_analysis_fresh(existing_analysis):
                 logger.info(f"Using existing fresh analysis for finding {finding_id}")
@@ -96,8 +101,8 @@ class AIAnalysisService:
         
         # Prepare data for analysis
         finding_data = self._prepare_finding_data(finding)
-        evidence_data = self._prepare_evidence_data(db, finding)
-        detection_data = self._prepare_detection_data(db, finding)
+        evidence_data = await self._prepare_evidence_data(db, finding)
+        detection_data = await self._prepare_detection_data(db, finding)
         
         # Construct prompt
         try:
@@ -125,7 +130,7 @@ class AIAnalysisService:
             raise
         
         # Create and persist AI analysis
-        ai_analysis = self._create_ai_analysis(
+        ai_analysis = await self._create_ai_analysis(
             db,
             finding_id,
             validated_result
@@ -155,7 +160,7 @@ class AIAnalysisService:
             "metadata": finding.metadata
         }
     
-    def _prepare_evidence_data(self, db: Session, finding: Finding) -> List[Dict[str, Any]]:
+    async def _prepare_evidence_data(self, db: AsyncSession, finding: Finding) -> List[Dict[str, Any]]:
         """
         Prepare evidence data for analysis.
         
@@ -182,7 +187,7 @@ class AIAnalysisService:
         
         return evidence_list
     
-    def _prepare_detection_data(self, db: Session, finding: Finding) -> Optional[Dict[str, Any]]:
+    async def _prepare_detection_data(self, db: AsyncSession, finding: Finding) -> Optional[Dict[str, Any]]:
         """
         Prepare detection data for analysis.
         
@@ -235,10 +240,10 @@ class AIAnalysisService:
             detection_data
         )
     
-    def _create_ai_analysis(
+    async def _create_ai_analysis(
         self,
-        db: Session,
-        finding_id: int,
+        db: AsyncSession,
+        finding_id: str,
         analysis_result: Dict[str, Any]
     ) -> AIAnalysis:
         """
@@ -252,7 +257,10 @@ class AIAnalysisService:
         Returns:
             AIAnalysis model instance
         """
+        import uuid
+        
         ai_analysis = AIAnalysis(
+            id=str(uuid.uuid4()),
             finding_id=finding_id,
             provider_name=self.ai_provider.get_provider_name(),
             model_name=self.ai_provider.get_model_name(),
@@ -273,8 +281,8 @@ class AIAnalysisService:
         )
         
         db.add(ai_analysis)
-        db.commit()
-        db.refresh(ai_analysis)
+        await db.commit()
+        await db.refresh(ai_analysis)
         
         return ai_analysis
     
@@ -296,7 +304,7 @@ class AIAnalysisService:
         age = datetime.utcnow() - analysis.created_at
         return age.total_seconds() < (freshness_hours * 3600)
     
-    def get_analysis_for_finding(self, db: Session, finding_id: int) -> Optional[AIAnalysis]:
+    async def get_analysis_for_finding(self, db: AsyncSession, finding_id: str) -> Optional[AIAnalysis]:
         """
         Get the most recent analysis for a finding.
         
@@ -307,9 +315,12 @@ class AIAnalysisService:
         Returns:
             AIAnalysis instance or None
         """
-        return db.query(AIAnalysis).filter(
-            AIAnalysis.finding_id == finding_id
-        ).order_by(AIAnalysis.created_at.desc()).first()
+        result = await db.execute(
+            select(AIAnalysis)
+            .filter(AIAnalysis.finding_id == finding_id)
+            .order_by(AIAnalysis.created_at.desc())
+        )
+        return result.scalar_one_or_none()
     
     def get_error_stats(self) -> Dict[str, Any]:
         """

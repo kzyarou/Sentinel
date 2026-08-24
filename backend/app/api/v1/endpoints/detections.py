@@ -7,6 +7,9 @@ from app.schemas.detection_rule import DetectionRule as DetectionRuleSchema
 from app.schemas.detection import Detection as DetectionSchema
 from app.services.detection_service import DetectionService
 from app.detection.rule_seeds import RuleSeeds
+from app.api.v1.endpoints.dependencies import get_current_user
+from app.models.user import User
+from app.core.authorization import AuthorizationService
 import logging
 
 logger = logging.getLogger(__name__)
@@ -15,7 +18,10 @@ router = APIRouter()
 
 
 @router.post("/detections/seed-rules", response_model=dict)
-async def seed_detection_rules(db: AsyncSession = Depends(get_db)):
+async def seed_detection_rules(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
     """
     Seed the database with initial detection rules.
     
@@ -23,12 +29,16 @@ async def seed_detection_rules(db: AsyncSession = Depends(get_db)):
     It's idempotent - running it multiple times won't create duplicates.
     
     Args:
+        current_user: Current authenticated user
         db: Database session
         
     Returns:
         Dictionary with seeding status and rule count
     """
     try:
+        # Check if user has permission to manage detection rules
+        AuthorizationService.require_detection_rule_management_permission(current_user)
+        
         created_rules = await RuleSeeds.seed_initial_rules(db)
         
         return {
@@ -45,6 +55,8 @@ async def seed_detection_rules(db: AsyncSession = Depends(get_db)):
             ]
         }
         
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Failed to seed detection rules: {str(e)}")
         raise HTTPException(
@@ -59,6 +71,7 @@ async def seed_detection_rules(db: AsyncSession = Depends(get_db)):
 @router.get("/detections/rules", response_model=List[DetectionRuleSchema])
 async def get_detection_rules(
     enabled_only: bool = True,
+    current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
     """
@@ -66,6 +79,7 @@ async def get_detection_rules(
     
     Args:
         enabled_only: If True, only return enabled rules
+        current_user: Current authenticated user
         db: Database session
         
     Returns:
@@ -94,6 +108,7 @@ async def get_detection_rules(
 @router.get("/detections/event/{event_id}", response_model=List[DetectionSchema])
 async def get_detections_for_event(
     event_id: str,
+    current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
     """
@@ -101,6 +116,7 @@ async def get_detections_for_event(
     
     Args:
         event_id: Event ID to retrieve detections for
+        current_user: Current authenticated user
         db: Database session
         
     Returns:

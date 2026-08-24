@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException, Depends, Query, Request
+from fastapi import APIRouter, HTTPException, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 from typing import Optional, List
 
@@ -7,6 +7,8 @@ from app.schemas.finding import Finding as FindingSchema, FindingUpdate, Finding
 from app.services.finding_service import FindingService
 from app.models.finding import FindingStatus as FindingStatusEnum
 from app.core.authorization import AuthorizationService
+from app.api.v1.endpoints.dependencies import get_current_user
+from app.models.user import User
 import logging
 
 logger = logging.getLogger(__name__)
@@ -20,7 +22,7 @@ async def get_findings(
     limit: int = Query(100, ge=1, le=1000, description="Maximum number of results to return"),
     severity: Optional[str] = Query(None, description="Filter by severity (LOW, MEDIUM, HIGH, CRITICAL)"),
     status: Optional[FindingStatus] = Query(None, description="Filter by status"),
-    request: Request,
+    current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
     """
@@ -31,16 +33,13 @@ async def get_findings(
         limit: Maximum number of results to return
         severity: Optional severity filter
         status: Optional status filter
-        request: FastAPI request object
+        current_user: Current authenticated user
         db: Database session
         
     Returns:
         List of findings matching the criteria
     """
     try:
-        # Require authentication
-        user = AuthorizationService.require_authentication(request)
-        
         # Convert status string to enum if provided
         status_enum = None
         if status:
@@ -57,7 +56,7 @@ async def get_findings(
         # Filter findings based on user permissions
         accessible_findings = []
         for finding in findings:
-            if AuthorizationService.can_view_finding(user, finding.id):
+            if AuthorizationService.can_view_finding(current_user, finding.id):
                 accessible_findings.append(finding)
         
         return [FindingService.finding_to_schema(finding) for finding in accessible_findings]
@@ -78,7 +77,7 @@ async def get_findings(
 @router.get("/findings/{finding_id}", response_model=FindingSchema)
 async def get_finding(
     finding_id: str,
-    request: Request,
+    current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
     """
@@ -86,7 +85,7 @@ async def get_finding(
     
     Args:
         finding_id: Finding ID to retrieve
-        request: FastAPI request object
+        current_user: Current authenticated user
         db: Database session
         
     Returns:
@@ -96,9 +95,6 @@ async def get_finding(
         HTTPException: If finding not found or access denied
     """
     try:
-        # Require authentication
-        user = AuthorizationService.require_authentication(request)
-        
         finding = await FindingService.get_finding_by_id(db, finding_id)
         
         if not finding:
@@ -111,7 +107,7 @@ async def get_finding(
             )
         
         # Check view permission
-        AuthorizationService.require_finding_view_permission(user, finding_id)
+        AuthorizationService.require_finding_view_permission(current_user, finding_id)
         
         return FindingService.finding_to_schema(finding)
         
@@ -132,7 +128,8 @@ async def get_finding(
 async def update_finding(
     finding_id: str,
     finding_update: FindingUpdate,
-    request: Request,
+    request,
+    current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
     """
@@ -146,6 +143,7 @@ async def update_finding(
         finding_id: Finding ID to update
         finding_update: Update data
         request: FastAPI request object
+        current_user: Current authenticated user
         db: Database session
         
     Returns:
@@ -155,9 +153,6 @@ async def update_finding(
         HTTPException: If finding not found, access denied, or update fails
     """
     try:
-        # Require authentication
-        user = AuthorizationService.require_authentication(request)
-        
         # Validate finding exists
         existing_finding = await FindingService.get_finding_by_id(db, finding_id)
         
@@ -171,7 +166,7 @@ async def update_finding(
             )
         
         # Check modify permission
-        AuthorizationService.require_finding_modify_permission(user, finding_id)
+        AuthorizationService.require_finding_modify_permission(current_user, finding_id)
         
         # Extract client information for audit logging
         ip_address = request.client.host if request.client else None
@@ -182,7 +177,7 @@ async def update_finding(
             db=db,
             finding_id=finding_id,
             finding_update=finding_update,
-            user_id=user.get("id"),
+            user_id=current_user.id,
             ip_address=ip_address,
             user_agent=user_agent
         )
@@ -224,7 +219,7 @@ async def update_finding(
 @router.get("/findings/{finding_id}/detection")
 async def get_finding_detection(
     finding_id: str,
-    request: Request,
+    current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
     """
@@ -232,7 +227,7 @@ async def get_finding_detection(
     
     Args:
         finding_id: Finding ID
-        request: FastAPI request object
+        current_user: Current authenticated user
         db: Database session
         
     Returns:
@@ -242,9 +237,6 @@ async def get_finding_detection(
         HTTPException: If finding not found, access denied, or no detection exists
     """
     try:
-        # Require authentication
-        user = AuthorizationService.require_authentication(request)
-        
         # Validate finding exists
         finding = await FindingService.get_finding_by_id(db, finding_id)
         
@@ -258,7 +250,7 @@ async def get_finding_detection(
             )
         
         # Check view permission
-        AuthorizationService.require_finding_view_permission(user, finding_id)
+        AuthorizationService.require_finding_view_permission(current_user, finding_id)
         
         detection = await FindingService.get_finding_detection(db, finding_id)
         
@@ -299,7 +291,7 @@ async def get_finding_detection(
 @router.get("/findings/{finding_id}/evidence")
 async def get_finding_evidence(
     finding_id: str,
-    request: Request,
+    current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
     """
@@ -307,7 +299,7 @@ async def get_finding_evidence(
     
     Args:
         finding_id: Finding ID
-        request: FastAPI request object
+        current_user: Current authenticated user
         db: Database session
         
     Returns:
@@ -317,9 +309,6 @@ async def get_finding_evidence(
         HTTPException: If finding not found or access denied
     """
     try:
-        # Require authentication
-        user = AuthorizationService.require_authentication(request)
-        
         # Validate finding exists
         finding = await FindingService.get_finding_by_id(db, finding_id)
         
@@ -333,7 +322,7 @@ async def get_finding_evidence(
             )
         
         # Check view permission
-        AuthorizationService.require_finding_view_permission(user, finding_id)
+        AuthorizationService.require_finding_view_permission(current_user, finding_id)
         
         evidence_list = await FindingService.get_finding_evidence(db, finding_id)
         

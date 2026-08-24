@@ -128,7 +128,99 @@ Run finding tests:
 pytest tests/test_findings.py
 ```
 
+## Authentication and Authorization
+
+### Authentication Mechanism
+
+Sentinel uses JWT (JSON Web Tokens) for stateless authentication:
+
+1. **Login**: Users authenticate with username/password to receive a JWT access token
+2. **Token Usage**: Include the token in the `Authorization` header: `Bearer <token>`
+3. **Token Expiration**: Tokens expire after 30 minutes (configurable)
+4. **Security**: Tokens are signed using HS256 algorithm with a secret key
+
+### User Roles
+
+- **ADMIN**: Full access to all features including user management and detection rules
+- **ANALYST**: Can view findings, events, detections, and request AI analysis
+- **VIEWER**: Read-only access to findings, events, and detections
+
+### Authorization Matrix
+
+| Resource | View | Modify | Admin Only |
+|----------|------|--------|------------|
+| Events | All Roles | - | - |
+| Detections | All Roles | - | - |
+| Findings | All Roles | ANALYST, ADMIN | - |
+| AI Analysis | ANALYST, ADMIN | - | - |
+| Detection Rules | All Roles | ADMIN | ADMIN |
+| Users | - | ADMIN | ADMIN |
+| Audit Logs | ADMIN | - | ADMIN |
+
+### Authentication Examples
+
+**Login Request:**
+```bash
+curl -X POST http://localhost:8000/api/v1/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"username": "admin", "password": "password123"}'
+```
+
+**Login Response:**
+```json
+{
+  "access_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+  "token_type": "bearer",
+  "expires_in": 1800,
+  "user": {
+    "id": "user-id",
+    "username": "admin",
+    "email": "admin@example.com",
+    "role": "ADMIN"
+  }
+}
+```
+
+**Using Token:**
+```bash
+curl -X GET http://localhost:8000/api/v1/findings \
+  -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+```
+
+### Security Features
+
+- **Password Hashing**: All passwords are hashed using bcrypt before storage
+- **Token Validation**: All tokens are validated on each request
+- **Role-Based Access Control**: Server-side enforcement of permissions
+- **Audit Logging**: All authentication and authorization events are logged
+- **Error Handling**: Generic error messages to prevent information leakage
+- **Rate Limiting**: Future implementation for brute force protection
+
+### Configuration
+
+Update the following environment variables in your `.env` file:
+
+```env
+# JWT Configuration
+SECRET_KEY=your-secret-key-change-in-production
+ALGORITHM=HS256
+ACCESS_TOKEN_EXPIRE_MINUTES=30
+```
+
+**Important**: Change the `SECRET_KEY` in production to a strong, random value.
+
 ## API Endpoints
+
+### Authentication
+- `POST /api/v1/auth/login` - Authenticate user and receive JWT access token
+  - Request body: `{"username": string, "password": string}`
+  - Returns: `{"access_token": string, "token_type": "bearer", "expires_in": int, "user": object}`
+- `POST /api/v1/auth/register` - Register a new user account
+  - Request body: `{"username": string, "email": string, "password": string, "role": string}`
+  - Returns: User object with ID and profile information
+- `POST /api/v1/auth/logout` - Logout user (audit logging only, JWT is stateless)
+  - Requires authentication
+  - Returns: Success message
 
 ### Health Check
 - `GET /api/v1/health` - Basic health check endpoint
@@ -136,26 +228,41 @@ pytest tests/test_findings.py
 
 ### Event Ingestion
 - `POST /api/v1/events` - Ingest security events for processing
+  - Requires authentication
 - `GET /api/v1/events/{event_id}` - Retrieve a specific event by ID
+  - Requires authentication
 
 ### Findings Management
 - `GET /api/v1/findings` - Retrieve findings with filtering and pagination
+  - Requires authentication
 - `GET /api/v1/findings/{finding_id}` - Retrieve a specific finding by ID
+  - Requires authentication
 - `PATCH /api/v1/findings/{finding_id}` - Update a finding (status, fields)
+  - Requires authentication and ANALYST or ADMIN role
 - `GET /api/v1/findings/{finding_id}/detection` - Retrieve detection for a finding
+  - Requires authentication
 - `GET /api/v1/findings/{finding_id}/evidence` - Retrieve evidence for a finding
+  - Requires authentication
+
+### Detection Rules
+- `GET /api/v1/detections/rules` - Retrieve detection rules
+  - Requires authentication
+- `POST /api/v1/detections/seed-rules` - Seed initial detection rules
+  - Requires authentication and ADMIN role
+- `GET /api/v1/detections/event/{event_id}` - Retrieve detections for an event
+  - Requires authentication
 
 ### AI Analysis
 - `POST /api/v1/findings/{finding_id}/analysis` - Trigger AI analysis for a finding
   - Request body: `{"force_refresh": boolean}` (optional)
   - Returns: Structured AI analysis with risk assessment, indicators, and investigation steps
-  - Requires authentication and finding access authorization
+  - Requires authentication and ANALYST or ADMIN role
 - `GET /api/v1/findings/{finding_id}/analysis` - Retrieve existing AI analysis for a finding
   - Returns: Most recent AI analysis for the specified finding
-  - Requires authentication and finding access authorization
+  - Requires authentication and ANALYST or ADMIN role
 - `GET /api/v1/ai-analysis/stats` - Get AI analysis error statistics (admin only)
   - Returns: Error statistics, success rates, and circuit breaker state
-  - Requires admin role
+  - Requires authentication and ADMIN role
 
 #### Finding Endpoints
 
@@ -169,7 +276,7 @@ Retrieve findings with optional filtering and pagination.
 - `severity` (optional): Filter by severity (LOW, MEDIUM, HIGH, CRITICAL)
 - `status` (optional): Filter by status (OPEN, INVESTIGATING, RESOLVED, FALSE_POSITIVE)
 
-**Authentication:** Required (X-User-ID header)
+**Authentication:** Required (JWT Bearer token)
 
 **Response:**
 ```json
@@ -193,8 +300,8 @@ Retrieve findings with optional filtering and pagination.
 
 Update a finding. Status transitions are validated by the backend.
 
-**Authentication:** Required (X-User-ID header)
-**Authorization:** Role-based (admin, security_analyst, analyst can modify)
+**Authentication:** Required (JWT Bearer token)
+**Authorization:** Role-based (ANALYST or ADMIN role required)
 
 **Request Body:**
 ```json
@@ -213,8 +320,8 @@ Update a finding. Status transitions are validated by the backend.
 **Response:** Updated finding object
 
 **Error Responses:**
-- `401 Unauthorized` - Authentication required
-- `403 Forbidden` - Insufficient permissions
+- `401 Unauthorized` - Authentication required or invalid token
+- `403 Forbidden` - Insufficient permissions or invalid role
 - `404 Not Found` - Finding not found
 - `400 Bad Request` - Invalid status transition
 

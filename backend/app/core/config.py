@@ -25,5 +25,10 @@ class Settings(BaseSettings):
     # Database
     DATABASE_URL: str = "postgresql+asyncpg://sentinel_user:changeme@localhost:5432/sentinel"
 
+    # JWT Configuration
+    SECRET_KEY: str = "your-secret-key-change-in-production"
+    ALGORITHM: str = "HS256"
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 30  # 30 minutes default
+
 
 settings = Settings()

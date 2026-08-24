@@ -26,9 +26,10 @@ class User(Base):
     __tablename__ = "users"
     
     id = Column(String, primary_key=True)  # UUID
-    external_id = Column(String(255), nullable=False, unique=True, index=True)  # External identity reference
+    external_id = Column(String(255), nullable=True, unique=True, index=True)  # External identity reference
     username = Column(String(100), nullable=False, unique=True, index=True)
     email = Column(String(255), nullable=True, unique=True, index=True)
+    password_hash = Column(String(255), nullable=True)  # Hashed password for local auth
     role = Column(SQLEnum(UserRole), default=UserRole.VIEWER, nullable=False, index=True)
     status = Column(SQLEnum(UserStatus), default=UserStatus.ACTIVE, nullable=False, index=True)
     created_timestamp = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
