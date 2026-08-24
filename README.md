@@ -14,7 +14,7 @@ Sentinel follows a modular, event-driven architecture. Security-relevant telemet
 - Use AI to provide contextual explanations of detected findings
 - Provide evidence supporting each finding rather than relying solely on an AI-generated conclusion
 - Provide a web dashboard for monitoring findings and system activity
-- Maintain an auditable record of detections and analysis
+- Maintain a comprehensive, auditable record of security events and user actions
 - Design the system with clear security boundaries and least-privilege principles
 - Provide automated tests for core detection and application logic
 - Document architectural and security decisions throughout development
@@ -43,6 +43,7 @@ The system is composed of the following core components:
 - **Event Correlation**: Connects related events to identify patterns
 - **Finding Store**: Persists events, detections, findings, and supporting evidence (PostgreSQL)
 - **AI Analysis**: Provides contextual analysis and explanations
+- **Audit Logging**: Comprehensive security audit logging with request correlation
 - **REST API**: Provides authenticated access to Sentinel's backend capabilities (FastAPI)
 - **Web Interface**: Provides monitoring, investigation, and visualization capabilities (Next.js)
 
