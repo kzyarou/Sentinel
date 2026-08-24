@@ -192,9 +192,137 @@ curl -X GET http://localhost:8000/api/v1/findings \
 - **Password Hashing**: All passwords are hashed using bcrypt before storage
 - **Token Validation**: All tokens are validated on each request
 - **Role-Based Access Control**: Server-side enforcement of permissions
-- **Audit Logging**: All authentication and authorization events are logged
+- **Audit Logging**: Comprehensive security audit logging with request correlation
+- **Request Correlation**: Unique request IDs for tracing events across system components
 - **Error Handling**: Generic error messages to prevent information leakage
+- **Sensitive Data Protection**: Automatic redaction of passwords, tokens, and secrets from audit logs
 - **Rate Limiting**: Future implementation for brute force protection
+
+### Audit Logging System
+
+Sentinel implements comprehensive security audit logging to record security-relevant user and administrative actions.
+
+**Audit Log Model:**
+- Unique ID for each audit event
+- Timestamp with timezone support
+- Actor/user ID where applicable
+- Action and action category (authentication, authorization, finding, detection_rule, user_administration, system)
+- Resource type and resource ID
+- Request ID for correlation
+- Result status (success, failure, error)
+- IP address and user agent
+- Sanitized metadata (sensitive data automatically redacted)
+
+**Audit Event Taxonomy:**
+
+Authentication Events:
+- `auth.login.success` - Successful user authentication
+- `auth.login.failure` - Failed authentication attempt
+- `auth.logout` - User logout
+
+Authorization Events:
+- `authz.access_denied` - Authorization failure
+
+Finding Events:
+- `finding.status_changed` - Finding status modification
+- `finding.resolved` - Finding marked as resolved
+- `finding.false_positive` - Finding marked as false positive
+- `finding.modified` - General finding modification
+
+Detection Rule Events:
+- `detection_rule.created` - Detection rule creation
+- `detection_rule.updated` - Detection rule update
+- `detection_rule.enabled` - Detection rule enabled
+- `detection_rule.disabled` - Detection rule disabled
+
+User Administration Events:
+- `user.created` - User account creation
+- `user.updated` - User account update
+- `user.role_changed` - User role modification
+
+**Audit Log API:**
+
+Retrieve audit logs with filtering:
+```bash
+curl -X GET "http://localhost:8000/api/v1/audit-logs?result=success&limit=10" \
+  -H "Authorization: Bearer <token>"
+```
+
+Get audit log statistics:
+```bash
+curl -X GET "http://localhost:8000/api/v1/audit-logs/stats" \
+  -H "Authorization: Bearer <token>"
+```
+
+**Audit Security Principles:**
+- **Immutability**: Audit records are append-oriented, never modified through normal operations
+- **Sensitive Data Protection**: Passwords, tokens, and secrets are automatically redacted from audit metadata
+- **Request Correlation**: Request IDs enable correlation between application logs, audit events, and database operations
+- **Accountability**: Critical operations (user creation, role changes) are prevented if audit logging fails
+- **Admin-Only Access**: Audit log retrieval is restricted to administrators only
+
+### Audit Logging System
+
+Sentinel implements comprehensive security audit logging to record security-relevant user and administrative actions.
+
+**Audit Log Model:**
+- Unique ID for each audit event
+- Timestamp with timezone support
+- Actor/user ID where applicable
+- Action and action category (authentication, authorization, finding, detection_rule, user_administration, system)
+- Resource type and resource ID
+- Request ID for correlation
+- Result status (success, failure, error)
+- IP address and user agent
+- Sanitized metadata (sensitive data automatically redacted)
+
+**Audit Event Taxonomy:**
+
+Authentication Events:
+- `auth.login.success` - Successful user authentication
+- `auth.login.failure` - Failed authentication attempt
+- `auth.logout` - User logout
+
+Authorization Events:
+- `authz.access_denied` - Authorization failure
+
+Finding Events:
+- `finding.status_changed` - Finding status modification
+- `finding.resolved` - Finding marked as resolved
+- `finding.false_positive` - Finding marked as false positive
+- `finding.modified` - General finding modification
+
+Detection Rule Events:
+- `detection_rule.created` - Detection rule creation
+- `detection_rule.updated` - Detection rule update
+- `detection_rule.enabled` - Detection rule enabled
+- `detection_rule.disabled` - Detection rule disabled
+
+User Administration Events:
+- `user.created` - User account creation
+- `user.updated` - User account update
+- `user.role_changed` - User role modification
+
+**Audit Log API:**
+
+Retrieve audit logs with filtering:
+```bash
+curl -X GET "http://localhost:8000/api/v1/audit-logs?result=success&limit=10" \
+  -H "Authorization: Bearer <token>"
+```
+
+Get audit log statistics:
+```bash
+curl -X GET "http://localhost:8000/api/v1/audit-logs/stats" \
+  -H "Authorization: Bearer <token>"
+```
+
+**Audit Security Principles:**
+- **Immutability**: Audit records are append-oriented, never modified through normal operations
+- **Sensitive Data Protection**: Passwords, tokens, and secrets are automatically redacted from audit metadata
+- **Request Correlation**: Request IDs enable correlation between application logs, audit events, and database operations
+- **Accountability**: Critical operations (user creation, role changes) are prevented if audit logging fails
+- **Admin-Only Access**: Audit log retrieval is restricted to administrators only
 
 ### Configuration
 
@@ -221,6 +349,15 @@ ACCESS_TOKEN_EXPIRE_MINUTES=30
 - `POST /api/v1/auth/logout` - Logout user (audit logging only, JWT is stateless)
   - Requires authentication
   - Returns: Success message
+
+### Audit Logs
+- `GET /api/v1/audit-logs` - Retrieve audit logs with filtering
+  - Requires authentication and ADMIN role
+  - Query parameters: `user_id`, `action`, `action_category`, `resource_type`, `resource_id`, `result`, `request_id`, `start_time`, `end_time`, `skip`, `limit`
+  - Returns: List of audit logs matching criteria
+- `GET /api/v1/audit-logs/stats` - Get audit log statistics
+  - Requires authentication and ADMIN role
+  - Returns: Audit log statistics (total count, category breakdown, result breakdown, recent activity)
 
 ### Health Check
 - `GET /api/v1/health` - Basic health check endpoint
@@ -387,6 +524,7 @@ Ingests security telemetry from various sources, validates it, normalizes it, an
 - Internal database errors are not exposed to clients
 - Raw event data is preserved for investigation (ADR-005)
 - Sensitive fields are not exposed in API responses
+- Request correlation via X-Request-ID header for security investigation
 
 #### AI Analysis Response Structure
 ```json
@@ -520,6 +658,14 @@ The AI analysis system is built with the following components:
 - **Response Validator** (`app/ai/response_validator.py`): Structured validation of AI responses to ensure data quality
 - **Error Handler** (`app/ai/error_handler.py`): Comprehensive error handling with circuit breaker pattern for reliability
 - **AI Analysis Service** (`app/services/ai_analysis_service.py`): Orchestrates the complete AI analysis workflow
+
+### AI Analysis Security Features
+
+- **Prompt Injection Prevention**: Input sanitization removes common injection patterns before prompt construction
+- **Circuit Breaker Pattern**: Prevents cascading failures when AI provider experiences issues
+- **Structured Validation**: All AI responses are validated against expected schema
+- **Access Control**: AI analysis endpoints require authentication and proper authorization
+- **Error Isolation**: Different error types are handled appropriately to prevent system degradation
 
 ### Security Features
 
