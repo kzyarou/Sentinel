@@ -261,69 +261,6 @@ curl -X GET "http://localhost:8000/api/v1/audit-logs/stats" \
 - **Accountability**: Critical operations (user creation, role changes) are prevented if audit logging fails
 - **Admin-Only Access**: Audit log retrieval is restricted to administrators only
 
-### Audit Logging System
-
-Sentinel implements comprehensive security audit logging to record security-relevant user and administrative actions.
-
-**Audit Log Model:**
-- Unique ID for each audit event
-- Timestamp with timezone support
-- Actor/user ID where applicable
-- Action and action category (authentication, authorization, finding, detection_rule, user_administration, system)
-- Resource type and resource ID
-- Request ID for correlation
-- Result status (success, failure, error)
-- IP address and user agent
-- Sanitized metadata (sensitive data automatically redacted)
-
-**Audit Event Taxonomy:**
-
-Authentication Events:
-- `auth.login.success` - Successful user authentication
-- `auth.login.failure` - Failed authentication attempt
-- `auth.logout` - User logout
-
-Authorization Events:
-- `authz.access_denied` - Authorization failure
-
-Finding Events:
-- `finding.status_changed` - Finding status modification
-- `finding.resolved` - Finding marked as resolved
-- `finding.false_positive` - Finding marked as false positive
-- `finding.modified` - General finding modification
-
-Detection Rule Events:
-- `detection_rule.created` - Detection rule creation
-- `detection_rule.updated` - Detection rule update
-- `detection_rule.enabled` - Detection rule enabled
-- `detection_rule.disabled` - Detection rule disabled
-
-User Administration Events:
-- `user.created` - User account creation
-- `user.updated` - User account update
-- `user.role_changed` - User role modification
-
-**Audit Log API:**
-
-Retrieve audit logs with filtering:
-```bash
-curl -X GET "http://localhost:8000/api/v1/audit-logs?result=success&limit=10" \
-  -H "Authorization: Bearer <token>"
-```
-
-Get audit log statistics:
-```bash
-curl -X GET "http://localhost:8000/api/v1/audit-logs/stats" \
-  -H "Authorization: Bearer <token>"
-```
-
-**Audit Security Principles:**
-- **Immutability**: Audit records are append-oriented, never modified through normal operations
-- **Sensitive Data Protection**: Passwords, tokens, and secrets are automatically redacted from audit metadata
-- **Request Correlation**: Request IDs enable correlation between application logs, audit events, and database operations
-- **Accountability**: Critical operations (user creation, role changes) are prevented if audit logging fails
-- **Admin-Only Access**: Audit log retrieval is restricted to administrators only
-
 ### Configuration
 
 Update the following environment variables in your `.env` file:
@@ -352,6 +289,12 @@ ACCESS_TOKEN_EXPIRE_MINUTES=30
 
 ### Audit Logs
 - `GET /api/v1/audit-logs` - Retrieve audit logs with filtering
+  - Requires authentication and ADMIN role
+  - Query parameters: `user_id`, `action`, `action_category`, `resource_type`, `resource_id`, `result`, `request_id`, `start_time`, `end_time`, `skip`, `limit`
+  - Returns: List of audit logs matching criteria
+- `GET /api/v1/audit-logs/stats` - Get audit log statistics
+  - Requires authentication and ADMIN role
+  - Returns: Audit log statistics (total count, category breakdown, result breakdown, recent activity)
   - Requires authentication and ADMIN role
   - Query parameters: `user_id`, `action`, `action_category`, `resource_type`, `resource_id`, `result`, `request_id`, `start_time`, `end_time`, `skip`, `limit`
   - Returns: List of audit logs matching criteria
