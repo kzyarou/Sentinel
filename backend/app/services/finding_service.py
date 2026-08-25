@@ -222,6 +222,7 @@ class FindingService:
                             db=db,
                             user_id=user_id,
                             finding_id=finding_id,
+                            resolution_notes=finding_update.resolution_notes,
                             request_id=request_id,
                             ip_address=ip_address,
                             user_agent=user_agent
@@ -229,19 +230,19 @@ class FindingService:
                     except Exception as audit_error:
                         logger.warning(f"Failed to log finding resolution audit: {str(audit_error)}")
                         # Non-critical, continue with operation
-                
                 elif finding_update.status == FindingStatus.FALSE_POSITIVE:
                     try:
                         await AuditService.log_finding_false_positive(
                             db=db,
                             user_id=user_id,
                             finding_id=finding_id,
+                            reason=finding_update.false_positive_reason,
                             request_id=request_id,
                             ip_address=ip_address,
                             user_agent=user_agent
                         )
                     except Exception as audit_error:
-                        logger.warning(f"Failed to log false positive audit: {str(audit_error)}")
+                        logger.warning(f"Failed to log finding false positive audit: {str(audit_error)}")
                         # Non-critical, continue with operation
             
             # Log general modification if fields were changed
