@@ -61,6 +61,46 @@ The frontend uses Next.js with TypeScript. See `frontend/README.md` for detailed
 
 This project uses Docker for reproducible development environments. See `docker-compose.yml` for service definitions.
 
+## API Integration
+
+The frontend and backend are integrated through a secure REST API with CORS configuration:
+
+### Backend CORS Configuration
+
+The backend is configured to allow requests from specific frontend origins:
+
+- **Development**: `http://localhost:3000`, `http://127.0.0.1:3000`
+- **Production**: Configurable via `CORS_ORIGINS` environment variable
+- **Security**: Credentials enabled for JWT authentication
+- **Configuration**: See `backend/README.md` for CORS environment variables
+
+### Frontend API Client
+
+The frontend uses a centralized API client with comprehensive error handling:
+
+- **Error Types**: Network, Authentication, Authorization, Validation, Rate Limit, Server errors
+- **Safe Rendering**: All API data is rendered safely to prevent XSS attacks
+- **Loading States**: Consistent loading, success, empty, and error states across all pages
+- **Environment Configuration**: Backend URL configurable via `NEXT_PUBLIC_API_URL`
+
+### Frontend Pages with API Integration
+
+All main pages are integrated with real API calls:
+
+- **Dashboard**: Real-time statistics and recent activity
+- **Findings**: Security findings with filtering and pagination
+- **Events**: Security event stream with type categorization
+- **Detections**: Detection rule management with seeding capability
+- **Health**: System health monitoring
+
+### Security Considerations
+
+- **Backend Authorization**: All authorization is enforced by the backend
+- **Safe Rendering**: Untrusted API data is rendered safely using dedicated utilities
+- **Error Handling**: Generic user-facing errors without exposing sensitive information
+- **CORS Security**: Restricted origins in production, credentials only when needed
+- **Token Security**: JWT tokens stored securely in localStorage
+
 ## Documentation
 
 Detailed architecture documentation and architectural decision records (ADRs) are available in the `docs/` directory:
