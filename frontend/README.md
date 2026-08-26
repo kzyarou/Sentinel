@@ -1,8 +1,51 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Sentinel Frontend
+
+This is the frontend application for the Sentinel cybersecurity monitoring platform, built with [Next.js](https://nextjs.org) and TypeScript.
+
+## Overview
+
+The Sentinel frontend provides a web interface for security monitoring, investigation, and system administration. It connects to the Sentinel backend API for data retrieval and authentication.
 
 ## Getting Started
 
-First, run the development server:
+### Prerequisites
+
+- Node.js 18+ 
+- npm, yarn, or pnpm
+- Sentinel backend running (default: http://localhost:8000)
+
+### Installation
+
+```bash
+npm install
+# or
+yarn install
+# or
+pnpm install
+```
+
+### Environment Configuration
+
+Copy the example environment file and configure it:
+
+```bash
+cp .env.example .env.local
+```
+
+Edit `.env.local` with your configuration:
+
+```env
+NEXT_PUBLIC_API_URL=http://localhost:8000
+NEXT_PUBLIC_API_VERSION=v1
+NEXT_PUBLIC_APP_NAME=Sentinel
+NEXT_PUBLIC_APP_VERSION=1.0.0
+NEXT_PUBLIC_ENABLE_ANALYTICS=false
+NEXT_PUBLIC_ENABLE_DEBUG_MODE=true
+```
+
+### Development
+
+Run the development server:
 
 ```bash
 npm run dev
@@ -10,27 +53,129 @@ npm run dev
 yarn dev
 # or
 pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open [http://localhost:3000](http://localhost:3000) with your browser to see the application.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+### Testing
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+Run the test suite:
 
-## Learn More
+```bash
+npm test
+# or
+yarn test
+# or
+pnpm test
+```
 
-To learn more about Next.js, take a look at the following resources:
+Run tests in watch mode:
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+```bash
+npm run test:watch
+# or
+yarn test:watch
+# or
+pnpm test:watch
+```
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+Run tests with coverage:
 
-## Deploy on Vercel
+```bash
+npm run test:coverage
+# or
+yarn test:coverage
+# or
+pnpm test:coverage
+```
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+### Build
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Build the production application:
+
+```bash
+npm run build
+# or
+yarn build
+# or
+pnpm build
+```
+
+## Project Structure
+
+```
+frontend/
+├── src/
+│   ├── app/                    # Next.js App Router pages
+│   │   ├── dashboard/         # Dashboard page
+│   │   ├── findings/           # Findings management
+│   │   ├── events/             # Event viewing
+│   │   ├── detections/         # Detection rules
+│   │   ├── health/             # System health
+│   │   ├── login/              # Authentication
+│   │   ├── layout.tsx          # Root layout
+│   │   └── page.tsx            # Homepage
+│   ├── components/            # React components
+│   │   ├── common/             # Shared UI components
+│   │   ├── dashboard/         # Dashboard-specific components
+│   │   ├── findings/           # Finding-related components
+│   │   ├── events/             # Event-related components
+│   │   ├── detections/         # Detection rule components
+│   │   └── health/             # Health monitoring components
+│   ├── lib/                   # Utility libraries
+│   │   ├── api/                # API client layer
+│   │   ├── auth/               # Authentication utilities
+│   │   └── validation/         # Form validation
+│   ├── hooks/                 # Custom React hooks
+│   ├── types/                 # TypeScript type definitions
+│   └── tests/                 # Frontend tests
+├── public/                    # Static assets
+├── jest.config.ts             # Jest configuration
+├── jest.setup.js              # Jest setup
+├── next.config.ts             # Next.js configuration
+├── tailwind.config.ts         # Tailwind CSS configuration
+├── tsconfig.json              # TypeScript configuration
+└── package.json              # Dependencies and scripts
+```
+
+## Key Features
+
+- **TypeScript**: Full type safety across the application
+- **Next.js App Router**: Modern React framework with server components
+- **Tailwind CSS**: Utility-first CSS framework
+- **Centralized API Client**: Single API communication layer
+- **Authentication**: JWT-based authentication with permission checks
+- **Modular Architecture**: Clear separation of concerns
+- **Testing**: Comprehensive test coverage with Jest
+
+## Authentication
+
+The frontend uses JWT-based authentication:
+- Login via `/login` page
+- Token stored in localStorage
+- API client automatically includes authentication headers
+- Permission-based UI access control
+
+## API Communication
+
+All API calls go through the centralized API client (`src/lib/api/client.ts`):
+- Automatic token management
+- Type-safe request/response handling
+- Consistent error handling
+- Environment-based configuration
+
+## Security Considerations
+
+- Backend authorization is authoritative (frontend checks are UX only)
+- No secrets committed to repository
+- Environment variables for sensitive configuration
+- Safe rendering of untrusted content
+- Proper error handling without exposing sensitive information
+
+## Development Notes
+
+- This project uses the Next.js App Router (not Pages Router)
+- Components are server components by default (use 'use client' for interactivity)
+- API calls should use the centralized API client
+- Follow the existing component patterns for consistency
+- Add tests for new components and utilities
