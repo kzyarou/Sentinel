@@ -49,6 +49,16 @@ The system is composed of the following core components:
 
 ## Getting Started
 
+### Backend
+
+The backend uses FastAPI with PostgreSQL. See `backend/README.md` for detailed setup instructions.
+
+### Frontend
+
+The frontend uses Next.js with TypeScript. See `frontend/README.md` for detailed setup instructions.
+
+### Docker
+
 This project uses Docker for reproducible development environments. See `docker-compose.yml` for service definitions.
 
 ## Documentation
