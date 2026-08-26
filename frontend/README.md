@@ -125,7 +125,9 @@ frontend/
 │   ├── lib/                   # Utility libraries
 │   │   ├── api/                # API client layer
 │   │   ├── auth/               # Authentication utilities
-│   │   └── validation/         # Form validation
+│   │   ├── validation/         # Form validation
+│   │   ├── safe-rendering/     # Safe content rendering utilities
+│   │   └── index.ts            # Central library exports
 │   ├── hooks/                 # Custom React hooks
 │   ├── types/                 # TypeScript type definitions
 │   └── tests/                 # Frontend tests
@@ -163,6 +165,65 @@ All API calls go through the centralized API client (`src/lib/api/client.ts`):
 - Type-safe request/response handling
 - Consistent error handling
 - Environment-based configuration
+- Enhanced error types for different failure scenarios
+
+### Error Handling
+
+The API client includes comprehensive error handling with specific error types:
+
+- **NetworkError**: Network connectivity issues
+- **AuthenticationError**: 401 Unauthorized responses (clears invalid tokens)
+- **AuthorizationError**: 403 Forbidden responses
+- **NotFoundError**: 404 Not Found responses
+- **ValidationError**: 400/409 validation errors with details
+- **RateLimitError**: 429 Too Many Requests
+- **ServerError**: 500+ server errors
+- **ApiRequestError**: Generic API request errors
+
+All errors provide user-friendly messages while preserving detailed information for debugging.
+
+### Safe Rendering
+
+Untrusted API data is rendered safely using utilities from `src/lib/safe-rendering/`:
+
+- **safeText**: Escapes HTML entities to prevent XSS
+- **truncateText**: Safely truncates long content
+- **safeDate**: Formats timestamps safely
+- **safeJson**: Renders JSON data safely
+- **isSuspiciousContent**: Detects potentially malicious content
+- **sanitizeHtml**: Removes dangerous HTML elements
+- **safeMarkdown**: Converts markdown to safe HTML
+- **maskSensitive**: Masks sensitive information like tokens
+- **safeEmail**: Renders email addresses safely
+- **safeUrl**: Renders URLs safely
+- **safeErrorMessage**: Sanitizes error messages
+
+### CORS Configuration
+
+The backend is configured to allow requests from the frontend development server:
+
+- Development origins: `http://localhost:3000`, `http://127.0.0.1:3000`
+- Configurable via backend CORS settings
+- Secure for production deployment
+
+### Loading States
+
+All API-driven pages support consistent state handling:
+
+- **Loading**: Shows loading spinner during API calls
+- **Success**: Displays data when successfully loaded
+- **Empty**: Shows empty state when no data is available
+- **Error**: Displays user-friendly error messages with retry options
+
+### Page Integration
+
+All main pages are integrated with real API calls:
+
+- **Dashboard**: Fetches statistics and recent activity
+- **Findings**: Retrieves security findings with filtering
+- **Events**: Loads security event stream
+- **Detections**: Manages detection rules with seeding capability
+- **Health**: Monitors system health status
 
 ## Security Considerations
 

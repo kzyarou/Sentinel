@@ -19,6 +19,68 @@ import {
   AuditLogFilters
 } from '@/types';
 
+// Error types for better error handling
+export class ApiRequestError extends Error {
+  constructor(
+    message: string,
+    public status: number,
+    public statusText: string,
+    public details?: any
+  ) {
+    super(message);
+    this.name = 'ApiRequestError';
+  }
+}
+
+export class NetworkError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'NetworkError';
+  }
+}
+
+export class AuthenticationError extends Error {
+  constructor(message: string = 'Authentication required') {
+    super(message);
+    this.name = 'AuthenticationError';
+  }
+}
+
+export class AuthorizationError extends Error {
+  constructor(message: string = 'Insufficient permissions') {
+    super(message);
+    this.name = 'AuthorizationError';
+  }
+}
+
+export class NotFoundError extends Error {
+  constructor(message: string = 'Resource not found') {
+    super(message);
+    this.name = 'NotFoundError';
+  }
+}
+
+export class ValidationError extends Error {
+  constructor(message: string, public validationErrors?: any) {
+    super(message);
+    this.name = 'ValidationError';
+  }
+}
+
+export class RateLimitError extends Error {
+  constructor(message: string = 'Too many requests, please try again later') {
+    super(message);
+    this.name = 'RateLimitError';
+  }
+}
+
+export class ServerError extends Error {
+  constructor(message: string = 'Server error occurred') {
+    super(message);
+    this.name = 'ServerError';
+  }
+}
+
 class ApiClient {
   private baseUrl: string;
   private apiVersion: string;
@@ -43,7 +105,7 @@ class ApiClient {
     options: RequestInit = {}
   ): Promise<T> {
     const url = `${this.apiUrl}${endpoint}`;
-    
+
     const headers: HeadersInit = {
       'Content-Type': 'application/json',
       ...options.headers,
@@ -65,15 +127,80 @@ class ApiClient {
           message: 'An error occurred',
           status: response.status,
         }));
-        throw new Error(errorData.message || 'Request failed');
+
+        // Handle different HTTP status codes with specific error types
+        switch (response.status) {
+          case 400:
+            throw new ValidationError(
+              errorData.message || 'Invalid request',
+              errorData.details
+            );
+          case 401:
+            this.clearToken(); // Clear invalid token
+            throw new AuthenticationError(
+              errorData.message || 'Authentication required'
+            );
+          case 403:
+            throw new AuthorizationError(
+              errorData.message || 'Insufficient permissions'
+            );
+          case 404:
+            throw new NotFoundError(
+              errorData.message || 'Resource not found'
+            );
+          case 409:
+            throw new ValidationError(
+              errorData.message || 'Resource conflict',
+              errorData.details
+            );
+          case 429:
+            throw new RateLimitError(
+              errorData.message || 'Too many requests'
+            );
+          case 500:
+          case 502:
+          case 503:
+          case 504:
+            throw new ServerError(
+              errorData.message || 'Server error occurred'
+            );
+          default:
+            throw new ApiRequestError(
+              errorData.message || 'Request failed',
+              response.status,
+              response.statusText,
+              errorData.details
+            );
+        }
       }
 
       return await response.json();
     } catch (error) {
-      if (error instanceof Error) {
+      // Handle network errors (no response received)
+      if (error instanceof TypeError && error.message.includes('fetch')) {
+        throw new NetworkError('Network error: Unable to connect to server');
+      }
+
+      // Re-throw our custom errors
+      if (
+        error instanceof ApiRequestError ||
+        error instanceof NetworkError ||
+        error instanceof AuthenticationError ||
+        error instanceof AuthorizationError ||
+        error instanceof NotFoundError ||
+        error instanceof ValidationError ||
+        error instanceof RateLimitError ||
+        error instanceof ServerError
+      ) {
         throw error;
       }
-      throw new Error('An unexpected error occurred');
+
+      // Handle unexpected errors
+      if (error instanceof Error) {
+        throw new NetworkError(error.message);
+      }
+
+      throw new NetworkError('An unexpected error occurred');
     }
   }
 
@@ -233,3 +360,15 @@ export const apiClient = new ApiClient();
 
 // Export class for testing
 export { ApiClient };
+
+// Export error types for consumer use
+export {
+  ApiRequestError,
+  NetworkError,
+  AuthenticationError,
+  AuthorizationError,
+  NotFoundError,
+  ValidationError,
+  RateLimitError,
+  ServerError
+};
