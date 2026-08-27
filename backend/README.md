@@ -270,9 +270,45 @@ Update the following environment variables in your `.env` file:
 SECRET_KEY=your-secret-key-change-in-production
 ALGORITHM=HS256
 ACCESS_TOKEN_EXPIRE_MINUTES=30
+
+# CORS Configuration
+# For local development, allow Next.js development server
+# For production, specify exact frontend origins (comma-separated)
+CORS_ORIGINS=http://localhost:3000,http://127.0.0.1:3000
+CORS_ALLOW_CREDENTIALS=true
+CORS_ALLOW_METHODS=*
+CORS_ALLOW_HEADERS=*
 ```
 
 **Important**: Change the `SECRET_KEY` in production to a strong, random value.
+
+### CORS Configuration
+
+The backend includes CORS (Cross-Origin Resource Sharing) middleware to allow frontend applications to communicate with the API.
+
+**Development Configuration:**
+- Default origins: `http://localhost:3000`, `http://127.0.0.1:3000` (Next.js development server)
+- Credentials: Enabled (required for JWT authentication)
+- Methods: All methods allowed in development
+- Headers: All headers allowed in development
+
+**Production Configuration:**
+- Specify exact frontend origins (comma-separated)
+- Enable credentials only if needed
+- Restrict methods to those actually used
+- Restrict headers to those actually used
+
+**Environment Variables:**
+- `CORS_ORIGINS`: Comma-separated list of allowed origins
+- `CORS_ALLOW_CREDENTIALS`: Whether to allow credentials (cookies, authorization headers)
+- `CORS_ALLOW_METHODS`: Comma-separated list of allowed HTTP methods
+- `CORS_ALLOW_HEADERS`: Comma-separated list of allowed HTTP headers
+
+**Security Notes:**
+- Never use `*` for origins in production
+- Only include origins you trust
+- Enable credentials only when necessary
+- Restrict methods and headers to minimum required
 
 ## API Endpoints
 

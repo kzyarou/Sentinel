@@ -57,7 +57,7 @@ export default function DashboardPage() {
       ]);
 
       const findings = findingsResponse.items || [];
-      const detections: Detection[] = []; // Placeholder until detections endpoint is available
+      const detections: any[] = []; // Placeholder until detections endpoint is available
 
       // Calculate system health based on responses
       const systemHealth = {
