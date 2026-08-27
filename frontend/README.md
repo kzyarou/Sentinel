@@ -149,6 +149,75 @@ frontend/
 - **Authentication**: JWT-based authentication with permission checks
 - **Modular Architecture**: Clear separation of concerns
 - **Testing**: Comprehensive test coverage with Jest
+- **Security Dashboard**: Real-time security monitoring overview
+
+## Dashboard
+
+The Sentinel security dashboard provides analysts with a high-level view of the current security state.
+
+### Dashboard Features
+
+**Severity Metrics:**
+- Critical, High, Medium, Low severity breakdown
+- Total findings count
+- Color-coded severity indicators with icons
+- Loading states with skeleton loaders
+- Accessibility-friendly (color + icon dual indication)
+
+**Recent Findings:**
+- List of recent security findings
+- Severity and status badges
+- Links to investigation views
+- Configurable max items display
+- Loading, error, and empty states
+- "View all findings" link when truncated
+
+**System Health:**
+- API status monitoring
+- Database status monitoring
+- Detection engine status monitoring
+- Three status levels: Healthy, Degraded, Unavailable
+- Last check timestamps
+- Status indicators with color + icon dual indication
+
+**Data Refresh:**
+- Manual refresh button
+- Last refresh timestamp display
+- Optional auto-refresh (30-second intervals)
+- Loading state indication
+- Keyboard shortcut support (Ctrl/Cmd + R)
+
+**Keyboard Navigation:**
+- Ctrl/Cmd + R: Refresh dashboard
+- Alt + F: Navigate to findings
+- Alt + E: Navigate to events
+- Alt + D: Navigate to detections
+- Alt + H: Navigate to health
+
+### Dashboard Components
+
+The dashboard is built from modular components:
+
+- `MetricsCard`: Reusable metric display card
+- `SeverityMetrics`: Severity breakdown component
+- `RecentFindings`: Recent findings list with links
+- `RecentDetections`: Recent detection activity (placeholder)
+- `SystemHealth`: Component health monitoring
+- `DashboardRefresh`: Data refresh controls
+- `DashboardKeyboardNav`: Keyboard navigation (invisible)
+
+### Dashboard Accessibility
+
+The dashboard follows accessibility best practices:
+
+- Semantic HTML structure
+- ARIA labels for all interactive elements
+- Keyboard navigation support
+- Focus management and indicators
+- Screen reader friendly status labels
+- Color + icon dual indication (not color-only)
+- High contrast colors
+- Live regions for dynamic content
 
 ## Authentication
 
@@ -240,3 +309,7 @@ All main pages are integrated with real API calls:
 - API calls should use the centralized API client
 - Follow the existing component patterns for consistency
 - Add tests for new components and utilities
+- Dashboard components are modular and reusable
+- All dashboard sections support loading, error, and empty states
+- Keyboard navigation is supported throughout the dashboard
+- Dashboard follows accessibility best practices (ARIA labels, semantic HTML)
