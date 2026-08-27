@@ -13,6 +13,7 @@ import {
   DetectionRule,
   AuditLog,
   AuditLogStats,
+  AIAnalysis,
   PaginatedResponse,
   FindingFilters,
   EventFilters,
@@ -262,8 +263,16 @@ class ApiClient {
     return this.patch<Finding>(`/findings/${id}`, data);
   }
 
-  async requestAIAnalysis(findingId: string): Promise<Finding> {
+  async requestFindingAnalysis(findingId: string): Promise<Finding> {
     return this.post<Finding>(`/findings/${findingId}/analysis`, {});
+  }
+
+  async getAIAnalysis(id: string): Promise<AIAnalysis> {
+    return this.get<AIAnalysis>(`/ai-analysis/${id}`);
+  }
+
+  async getDetection(id: string): Promise<any> {
+    return this.get<any>(`/detections/${id}`);
   }
 
   // Event Methods
