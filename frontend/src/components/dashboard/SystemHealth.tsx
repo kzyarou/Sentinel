@@ -3,7 +3,6 @@ import { LoadingSpinner } from '@/components/common/LoadingSpinner';
 import { Button } from '@/components/common/Button';
 
 interface HealthStatus {
-  name: string;
   status: 'healthy' | 'degraded' | 'unavailable';
   message?: string;
   lastCheck: string;
