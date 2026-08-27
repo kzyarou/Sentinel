@@ -61,6 +61,97 @@ The frontend uses Next.js with TypeScript. See `frontend/README.md` for detailed
 
 This project uses Docker for reproducible development environments. See `docker-compose.yml` for service definitions.
 
+## Security Dashboard
+
+The Sentinel security dashboard provides analysts with a high-level view of the current security state without replacing the detailed investigation workflow.
+
+### Dashboard Features
+
+**Severity Metrics:**
+- Critical, High, Medium, Low severity breakdown
+- Total findings count
+- Color-coded severity indicators with icons
+- Accessibility-friendly (color + icon dual indication)
+
+**Recent Findings:**
+- List of recent security findings
+- Severity and status badges
+- Links to investigation views
+- Configurable max items display
+- Loading, error, and empty states
+
+**System Health:**
+- API status monitoring
+- Database status monitoring
+- Detection engine status monitoring
+- Three status levels: Healthy, Degraded, Unavailable
+- Last check timestamps
+
+**Data Refresh:**
+- Manual refresh button
+- Last refresh timestamp display
+- Optional auto-refresh (30-second intervals)
+- Keyboard shortcut support (Ctrl/Cmd + R)
+
+**Keyboard Navigation:**
+- Ctrl/Cmd + R: Refresh dashboard
+- Alt + F: Navigate to findings
+- Alt + E: Navigate to events
+- Alt + D: Navigate to detections
+- Alt + H: Navigate to health
+
+### Dashboard Accessibility
+
+The dashboard follows accessibility best practices:
+
+- Semantic HTML structure
+- ARIA labels for all interactive elements
+- Keyboard navigation support
+- Focus management and indicators
+- Screen reader friendly status labels
+- Color + icon dual indication (not color-only)
+- High contrast colors
+
+## API Integration
+
+The frontend and backend are integrated through a secure REST API with CORS configuration:
+
+### Backend CORS Configuration
+
+The backend is configured to allow requests from specific frontend origins:
+
+- **Development**: `http://localhost:3000`, `http://127.0.0.1:3000`
+- **Production**: Configurable via `CORS_ORIGINS` environment variable
+- **Security**: Credentials enabled for JWT authentication
+- **Configuration**: See `backend/README.md` for CORS environment variables
+
+### Frontend API Client
+
+The frontend uses a centralized API client with comprehensive error handling:
+
+- **Error Types**: Network, Authentication, Authorization, Validation, Rate Limit, Server errors
+- **Safe Rendering**: All API data is rendered safely to prevent XSS attacks
+- **Loading States**: Consistent loading, success, empty, and error states across all pages
+- **Environment Configuration**: Backend URL configurable via `NEXT_PUBLIC_API_URL`
+
+### Frontend Pages with API Integration
+
+All main pages are integrated with real API calls:
+
+- **Dashboard**: Real-time statistics and recent activity with comprehensive monitoring
+- **Findings**: Security findings with filtering and pagination
+- **Events**: Security event stream with type categorization
+- **Detections**: Detection rule management with seeding capability
+- **Health**: System health monitoring
+
+### Security Considerations
+
+- **Backend Authorization**: All authorization is enforced by the backend
+- **Safe Rendering**: Untrusted API data is rendered safely using dedicated utilities
+- **Error Handling**: Generic user-facing errors without exposing sensitive information
+- **CORS Security**: Restricted origins in production, credentials only when needed
+- **Token Security**: JWT tokens stored securely in localStorage
+
 ## Documentation
 
 Detailed architecture documentation and architectural decision records (ADRs) are available in the `docs/` directory:
