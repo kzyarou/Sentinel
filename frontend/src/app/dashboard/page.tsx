@@ -5,6 +5,7 @@ import { SeverityMetrics } from '@/components/dashboard/SeverityMetrics';
 import { RecentFindings } from '@/components/dashboard/RecentFindings';
 import { SystemHealth } from '@/components/dashboard/SystemHealth';
 import { DashboardRefresh } from '@/components/dashboard/DashboardRefresh';
+import { DashboardKeyboardNav } from '@/components/dashboard/DashboardKeyboardNav';
 import { Alert } from '@/components/common/Alert';
 import { apiClient, NetworkError, ServerError, AuthenticationError } from '@/lib';
 import { Finding } from '@/types';
@@ -112,10 +113,33 @@ export default function DashboardPage() {
     };
   }, [autoRefresh]);
 
+  const handleNavigateToFindings = () => {
+    window.location.href = '/findings';
+  };
+
+  const handleNavigateToEvents = () => {
+    window.location.href = '/events';
+  };
+
+  const handleNavigateToDetections = () => {
+    window.location.href = '/detections';
+  };
+
+  const handleNavigateToHealth = () => {
+    window.location.href = '/health';
+  };
+
   const severityMetrics = calculateSeverityMetrics(data.findings);
 
   return (
     <div className="space-y-6">
+      <DashboardKeyboardNav
+        onRefresh={fetchDashboardData}
+        onNavigateToFindings={handleNavigateToFindings}
+        onNavigateToEvents={handleNavigateToEvents}
+        onNavigateToDetections={handleNavigateToDetections}
+        onNavigateToHealth={handleNavigateToHealth}
+      />
       <div className="flex justify-between items-center">
         <div>
           <h1 className="text-3xl font-bold text-gray-900">Security Dashboard</h1>
