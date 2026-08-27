@@ -109,6 +109,8 @@ frontend/
 │   ├── app/                    # Next.js App Router pages
 │   │   ├── dashboard/         # Dashboard page
 │   │   ├── findings/           # Findings management
+│   │   │   ├── [id]/          # Finding investigation view
+│   │   │   └── page.tsx       # Findings list
 │   │   ├── events/             # Event viewing
 │   │   ├── detections/         # Detection rules
 │   │   ├── health/             # System health
@@ -118,6 +120,14 @@ frontend/
 │   ├── components/            # React components
 │   │   ├── common/             # Shared UI components
 │   │   ├── dashboard/         # Dashboard-specific components
+│   │   ├── investigation/      # Finding investigation components
+│   │   │   ├── FindingSummary.tsx
+│   │   │   ├── DetectionInfo.tsx
+│   │   │   ├── Evidence.tsx
+│   │   │   ├── EventInformation.tsx
+│   │   │   ├── AIAnalysis.tsx
+│   │   │   ├── FindingStatus.tsx
+│   │   │   └── StatusHistory.tsx
 │   │   ├── findings/           # Finding-related components
 │   │   ├── events/             # Event-related components
 │   │   ├── detections/         # Detection rule components
@@ -182,6 +192,212 @@ The Sentinel security dashboard provides analysts with a high-level view of the 
 
 **Data Refresh:**
 - Manual refresh button
+- Last refresh timestamp display
+- Optional auto-refresh (30-second intervals)
+- Keyboard shortcut support (Ctrl/Cmd + R)
+
+**Keyboard Navigation:**
+- Ctrl/Cmd + R: Refresh dashboard
+- Alt + F: Navigate to findings
+- Alt + E: Navigate to events
+- Alt + D: Navigate to detections
+- Alt + H: Navigate to health
+
+### Dashboard Accessibility
+
+The dashboard follows accessibility best practices:
+
+- Semantic HTML structure
+- ARIA labels for all interactive elements
+- Keyboard navigation support
+- Focus management and indicators
+- Screen reader friendly status labels
+- Color + icon dual indication (not color-only)
+- High contrast colors
+
+## Finding Investigation View
+
+The Sentinel finding investigation view provides analysts with a comprehensive interface for understanding and managing security findings.
+
+### Investigation Route
+
+- **Route**: `/findings/{finding_id}`
+- **Dynamic routing**: Uses Next.js App Router with dynamic segments
+- **Access**: Navigate from findings list or direct URL
+
+### Investigation Components
+
+**FindingSummary Component:**
+- Displays finding title, description, severity, confidence, status
+- Shows creation and update timestamps
+- Displays detection category
+- Color-coded severity and status badges with icons
+- Authoritative vs AI content distinction
+- Loading, error, and empty states
+- Accessibility features (ARIA labels, semantic HTML)
+
+**DetectionInfo Component:**
+- Shows detection rule name and version
+- Displays detection timestamp and severity
+- Shows detection confidence
+- Displays detection metadata
+- Shows matched conditions
+- Rule description display
+- Loading, error, and empty states
+- Color-coded severity indicators
+
+**Evidence Component:**
+- Displays related events as evidence
+- Evidence tracing: Finding → Detection → Evidence → Original Event
+- Collapsible event list with expandable details
+- Event type and source badges
+- Timestamp and host information
+- Keyboard navigation support
+- Loading, error, and empty states
+- Evidence summary with count
+
+**EventInformation Component:**
+- Displays detailed event information
+- Shows event type, source, timestamp, host
+- Displays user/entity and IP address
+- Shows normalized fields with JSON display
+- Displays original event data with JSON display
+- Safe rendering of untrusted event content
+- Security notice for sensitive information
+- Type-specific color coding
+
+**AIAnalysis Component:**
+- Clear visual distinction from authoritative evidence
+- AI-generated content advisory notice
+- Shows analysis summary and interpretation
+- Displays observed indicators
+- Shows investigation suggestions
+- Displays uncertainty notes
+- Confidence score with progress bar
+- Model information display
+- Analysis request functionality
+- Loading, error, and empty states
+- Retry capability for failed analysis
+- "Analyze with AI" button for requesting analysis
+
+**FindingStatus Component:**
+- Displays current finding status
+- Shows valid status transitions based on lifecycle
+- Status change confirmation dialog
+- Status lifecycle information
+- Authorization notice
+- Loading, error, and empty states
+- Status change with backend validation
+
+**StatusHistory Component:**
+- Timeline view of status changes
+- Shows previous and new status
+- Displays change reason and actor
+- Timestamp display
+- Privacy notice for sensitive information
+- Audit information display
+- Loading, error, and empty states
+- Proper ARIA labels for accessibility
+
+### Investigation Features
+
+**Authoritative vs AI Content Distinction:**
+- Clear visual separation between authoritative evidence and AI analysis
+- Color-coded sections (blue for authoritative, amber for AI)
+- Advisory notices for AI-generated content
+- "Content Type" labels
+
+**Evidence Tracing:**
+- Visual chain: Finding → Detection → Evidence → Original Event
+- Expandable event details
+- Related event linking
+- Original data preservation
+
+**Status Management:**
+- Valid status transitions enforced
+- Confirmation dialogs for status changes
+- Status history timeline
+- Backend authorization enforcement
+
+**AI Analysis Integration:**
+- Request AI analysis from investigation view
+- Processing state indication
+- Failed analysis handling with retry
+- Detailed analysis display with multiple sections
+- Confidence scoring
+
+### Investigation Accessibility
+
+**Semantic HTML:**
+- Proper section elements with aria-label
+- Role attributes where appropriate
+- Semantic button and link elements
+- Time elements for timestamps
+
+**ARIA Support:**
+- ARIA labels for all interactive elements
+- aria-expanded for collapsible sections
+- aria-live for dynamic content
+- aria-pressed for toggle buttons
+- Role="progressbar" for confidence scores
+- Role="alert" for error messages
+
+**Keyboard Navigation:**
+- Full keyboard navigation support
+- Focus management with visible indicators
+- Enter and Space key support for expandable sections
+- Tab order appropriate
+- Keyboard shortcuts for common actions
+
+**Visual Accessibility:**
+- Color + icon dual indication (not color-only)
+- High contrast colors for all indicators
+- Readable font sizes and contrast
+- Distinct status indicators
+- Clear visual separation of content types
+
+### Investigation Security
+
+**Backend Authorization:**
+- All API calls enforce backend permissions
+- Status changes validated by backend
+- AI analysis requests require authorization
+- Unauthorized access handled gracefully
+
+**Safe Rendering:**
+- All event data rendered safely
+- Sensitive fields filtered
+- Original data displayed safely
+- AI content clearly labeled as non-authoritative
+
+**Error Handling:**
+- Generic user-facing errors
+- No backend stack traces exposed
+- Proper error state display
+- Retry functionality where appropriate
+
+### Investigation Testing
+
+**Component Tests:**
+- FindingSummary: Rendering, loading states, error handling, accessibility
+- DetectionInfo: Rule display, metadata, loading states, error handling
+- Evidence: Event list, expansion, keyboard navigation, empty states
+- EventInformation: Safe rendering, field display, security notices
+- AIAnalysis: Request handling, state management, content display, advisory notices
+- FindingStatus: Status transitions, confirmation dialogs, authorization
+- StatusHistory: Timeline display, actor information, privacy notices
+
+**Integration Tests:**
+- Investigation page data loading
+- Component interaction and state management
+- API integration and error handling
+- Navigation and routing
+
+**Security Tests:**
+- Safe rendering of untrusted data
+- Backend authorization enforcement
+- AI content separation
+- Sensitive field filtering
 - Last refresh timestamp display
 - Optional auto-refresh (30-second intervals)
 - Loading state indication

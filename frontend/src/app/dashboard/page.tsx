@@ -7,7 +7,7 @@ import { SystemHealth } from '@/components/dashboard/SystemHealth';
 import { DashboardRefresh } from '@/components/dashboard/DashboardRefresh';
 import { DashboardKeyboardNav } from '@/components/dashboard/DashboardKeyboardNav';
 import { Alert } from '@/components/common/Alert';
-import { apiClient, NetworkError, ServerError, AuthenticationError } from '@/lib';
+import { apiClient, NetworkError, ServerError, AuthenticationError } from '@/lib/api';
 import { Finding } from '@/types';
 
 interface DashboardData {

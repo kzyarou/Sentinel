@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { Card } from '@/components/common/Card';
 import { LoadingSpinner } from '@/components/common/LoadingSpinner';
 import { Alert } from '@/components/common/Alert';
-import { apiClient, NetworkError, ServerError } from '@/lib';
+import { apiClient, NetworkError, ServerError } from '@/lib/api';
 
 interface HealthStatus {
   status: string;

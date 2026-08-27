@@ -1,15 +1,17 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { Card } from '@/components/common/Card';
 import { LoadingSpinner } from '@/components/common/LoadingSpinner';
 import { Alert } from '@/components/common/Alert';
 import { Button } from '@/components/common/Button';
-import { apiClient, NetworkError, ServerError, AuthenticationError } from '@/lib';
+import { apiClient, NetworkError, ServerError, AuthenticationError } from '@/lib/api';
 import { Finding } from '@/types';
 import { safeText, safeDate, truncateText } from '@/lib/safe-rendering';
 
 export default function FindingsPage() {
+  const router = useRouter();
   const [findings, setFindings] = useState<Finding[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -150,7 +152,11 @@ export default function FindingsPage() {
                   {truncateText(finding.description, 200)}
                 </p>
                 <div className="flex gap-2">
-                  <Button variant="primary" size="sm">
+                  <Button 
+                    variant="primary" 
+                    size="sm"
+                    onClick={() => router.push(`/findings/${finding.id}`)}
+                  >
                     View Details
                   </Button>
                   <Button variant="secondary" size="sm">
