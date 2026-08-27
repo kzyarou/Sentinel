@@ -5,7 +5,7 @@ import { Card } from '@/components/common/Card';
 import { LoadingSpinner } from '@/components/common/LoadingSpinner';
 import { Alert } from '@/components/common/Alert';
 import { Button } from '@/components/common/Button';
-import { apiClient, NetworkError, ServerError, AuthenticationError } from '@/lib';
+import { apiClient, NetworkError, ServerError, AuthenticationError } from '@/lib/api';
 import { Event } from '@/types';
 import { safeText, safeDate, truncateText } from '@/lib/safe-rendering';
 
