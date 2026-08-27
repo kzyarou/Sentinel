@@ -14,3 +14,15 @@ export * from './validation';
 
 // Safe Rendering
 export * from './safe-rendering';
+
+// Error types
+export {
+  ApiRequestError,
+  NetworkError,
+  AuthenticationError,
+  AuthorizationError,
+  NotFoundError,
+  ValidationError,
+  RateLimitError,
+  ServerError
+} from './api/client';
