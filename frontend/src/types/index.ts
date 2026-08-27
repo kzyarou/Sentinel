@@ -52,6 +52,11 @@ export interface Finding {
   updated_at: string;
   detections?: Detection[];
   ai_analysis?: AIAnalysis;
+  detection_id?: string;
+  ai_analysis_id?: string;
+  category?: string;
+  confidence?: number;
+  metadata?: Record<string, any>;
 }
 
 export interface FindingCreate {
@@ -81,6 +86,7 @@ export interface Event {
   ip_address?: string;
   raw_data: Record<string, any>;
   normalized_data?: Record<string, any>;
+  finding_id?: string;
 }
 
 export interface EventCreate {
@@ -125,6 +131,12 @@ export interface AIAnalysis {
   confidence: number;
   recommendations: string[];
   created_at: string;
+  summary?: string;
+  indicators?: string[];
+  interpretation?: string;
+  suggestions?: string[];
+  uncertainty_notes?: string[];
+  model_used?: string;
 }
 
 // Audit Log Types
