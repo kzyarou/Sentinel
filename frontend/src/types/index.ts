@@ -101,6 +101,8 @@ export interface Detection {
   rule_name: string;
   confidence: number;
   matched_at: string;
+  timestamp: string;
+  severity: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
   details: Record<string, any>;
 }
 
@@ -109,6 +111,7 @@ export interface DetectionRule {
   name: string;
   description: string;
   rule_type: string;
+  severity: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
   enabled: boolean;
   created_at: string;
   updated_at: string;
