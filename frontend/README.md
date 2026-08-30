@@ -112,6 +112,8 @@ frontend/
 │   │   │   ├── [id]/          # Finding investigation view
 │   │   │   └── page.tsx       # Findings list
 │   │   ├── events/             # Event viewing
+│   │   │   ├── [id]/          # Event detail view
+│   │   │   └── page.tsx       # Events list with filtering
 │   │   ├── detections/         # Detection rules
 │   │   ├── health/             # System health
 │   │   ├── login/              # Authentication
@@ -398,13 +400,158 @@ The Sentinel finding investigation view provides analysts with a comprehensive i
 - Backend authorization enforcement
 - AI content separation
 - Sensitive field filtering
-- Last refresh timestamp display
-- Optional auto-refresh (30-second intervals)
-- Loading state indication
-- Keyboard shortcut support (Ctrl/Cmd + R)
+
+## Event Explorer
+
+The Sentinel event explorer provides analysts with comprehensive visibility into the underlying telemetry that powers detections and findings.
+
+### Event Explorer Route
+
+- **Event List Route**: `/events`
+- **Event Detail Route**: `/events/{event_id}`
+- **Dynamic routing**: Uses Next.js App Router with dynamic segments
+
+### Event List Features
+
+**Pagination:**
+- Configurable page size (20 events per page)
+- Previous/Next navigation buttons
+- Page indicator showing current page and total pages
+- Efficient backend queries with skip/limit parameters
+- Total event count display
+
+**Filtering:**
+- Event type filter (e.g., security, system, network, application)
+- Source filter (e.g., syslog, windows, aws)
+- Host filter for specific hosts
+- User filter for specific users
+- Time range filter with start/end datetime
+- Apply and Clear filter buttons
+- Filter state management
+
+**Event Display:**
+- Event ID, type, and source display
+- Timestamp and host information
+- User and IP address when available
+- Related detection ID badge
+- Related finding ID badge
+- Event message display with truncation
+- Color-coded event type badges
+- "View Details" navigation button
+
+### Event Detail Features
+
+**Event Summary:**
+- Event type, source, and ID display
+- Timestamp and ingestion timestamp
+- Host, user, and IP address information
+- Related detection and finding navigation buttons
+- Color-coded event type badges
+
+**Event Data Display:**
+- Normalized event data with JSON formatting
+- Raw event data with security notice and toggle
+- Event metadata display
+- Safe rendering of all untrusted data
+
+**Traceability:**
+- Event relationship chain visualization
+- Navigation to related detection
+- Navigation to related finding
+- Traceability information (Event → Normalization → Detection → Finding)
+
+**Security Features:**
+- Safe rendering of raw event data
+- Security notice for external telemetry
+- Toggle for raw data display
+- Backend authorization enforcement
+- Generic error messages without exposing backend details
+
+### Event Explorer Accessibility
+
+**Semantic HTML:**
+- Proper section elements with aria-label
+- Time elements for timestamps
+- Semantic button and link elements
+- Role attributes where appropriate
+
+**ARIA Support:**
+- ARIA labels for event type badges
+- aria-label for filter inputs
+- Proper button labeling
+- Status announcements for dynamic content
 
 **Keyboard Navigation:**
-- Ctrl/Cmd + R: Refresh dashboard
+- Full keyboard navigation support
+- Focus management with visible indicators
+- Tab order appropriate
+- Enter key support for actions
+
+**Visual Accessibility:**
+- Color + icon dual indication for event types
+- High contrast colors for badges
+- Readable font sizes and contrast
+- Distinct visual separation of sections
+
+### Event Explorer Security
+
+**Backend Authorization:**
+- All API calls enforce backend permissions
+- Proper error handling for unauthorized access
+- User-friendly error messages without backend details
+
+**Safe Rendering:**
+- All event data rendered safely using safe-rendering utilities
+- Raw event data treated as untrusted
+- Security notices for external telemetry
+- Toggle for raw data to prevent accidental exposure
+
+**Performance:**
+- Pagination to prevent unlimited data loading
+- Efficient backend queries with skip/limit
+- Filter optimization through backend
+- Bounded retrieval mechanisms
+
+### Event Explorer Testing
+
+**Event List Tests:**
+- Events list rendering with pagination
+- Loading state display
+- Empty state when no events
+- Error state handling
+- Filter application and clearing
+- Pagination navigation
+- Related detection and finding badge display
+- Navigation to event detail page
+- ARIA labels for accessibility
+
+**Event Detail Tests:**
+- Event detail rendering
+- Loading state display
+- NotFound and Authorization error handling
+- Normalized event data display
+- Raw event data toggle functionality
+- Event metadata display
+- Traceability information display
+- Navigation to related detection and finding
+- Security notice for raw data
+- Back to events navigation
+- ARIA labels for accessibility
+- Ingestion timestamp display
+
+**Integration Tests:**
+- Filter application and API integration
+- Pagination and API integration
+- Navigation between list and detail views
+- Error handling across views
+
+**Security Tests:**
+- Safe rendering of untrusted event data
+- Backend authorization enforcement
+- Raw data security notice display
+- Sensitive field filtering
+
+### Investigation Testing
 - Alt + F: Navigate to findings
 - Alt + E: Navigate to events
 - Alt + D: Navigate to detections

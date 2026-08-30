@@ -273,6 +273,116 @@ The Sentinel finding investigation view provides analysts with a comprehensive i
 - Proper error state display
 - Retry functionality where appropriate
 
+## Event Explorer
+
+The Sentinel event explorer provides analysts with comprehensive visibility into the underlying telemetry that powers detections and findings.
+
+### Event Explorer Route
+
+- **Event List Route**: `/events`
+- **Event Detail Route**: `/events/{event_id}`
+- **Dynamic routing**: Uses Next.js App Router with dynamic segments
+
+### Event List Features
+
+**Pagination:**
+- Configurable page size (20 events per page)
+- Previous/Next navigation buttons
+- Page indicator showing current page and total pages
+- Efficient backend queries with skip/limit parameters
+- Total event count display
+
+**Filtering:**
+- Event type filter (e.g., security, system, network, application)
+- Source filter (e.g., syslog, windows, aws)
+- Host filter for specific hosts
+- User filter for specific users
+- Time range filter with start/end datetime
+- Apply and Clear filter buttons
+
+**Event Display:**
+- Event ID, type, and source display
+- Timestamp and host information
+- User and IP address when available
+- Related detection ID badge
+- Related finding ID badge
+- Event message display with truncation
+- Color-coded event type badges
+- "View Details" navigation button
+
+### Event Detail Features
+
+**Event Summary:**
+- Event type, source, and ID display
+- Timestamp and ingestion timestamp
+- Host, user, and IP address information
+- Related detection and finding navigation buttons
+- Color-coded event type badges
+
+**Event Data Display:**
+- Normalized event data with JSON formatting
+- Raw event data with security notice and toggle
+- Event metadata display
+- Safe rendering of all untrusted data
+
+**Traceability:**
+- Event relationship chain visualization
+- Navigation to related detection
+- Navigation to related finding
+- Traceability information (Event → Normalization → Detection → Finding)
+
+**Security Features:**
+- Safe rendering of raw event data
+- Security notice for external telemetry
+- Toggle for raw data display
+- Backend authorization enforcement
+- Generic error messages without exposing backend details
+
+### Event Explorer Accessibility
+
+**Semantic HTML:**
+- Proper section elements with aria-label
+- Time elements for timestamps
+- Semantic button and link elements
+- Role attributes where appropriate
+
+**ARIA Support:**
+- ARIA labels for event type badges
+- aria-label for filter inputs
+- Proper button labeling
+- Status announcements for dynamic content
+
+**Keyboard Navigation:**
+- Full keyboard navigation support
+- Focus management with visible indicators
+- Tab order appropriate
+- Enter key support for actions
+
+**Visual Accessibility:**
+- Color + icon dual indication for event types
+- High contrast colors for badges
+- Readable font sizes and contrast
+- Distinct visual separation of sections
+
+### Event Explorer Security
+
+**Backend Authorization:**
+- All API calls enforce backend permissions
+- Proper error handling for unauthorized access
+- User-friendly error messages without backend details
+
+**Safe Rendering:**
+- All event data rendered safely using safe-rendering utilities
+- Raw event data treated as untrusted
+- Security notices for external telemetry
+- Toggle for raw data to prevent accidental exposure
+
+**Performance:**
+- Pagination to prevent unlimited data loading
+- Efficient backend queries with skip/limit
+- Filter optimization through backend
+- Bounded retrieval mechanisms
+
 ## API Integration
 
 The frontend and backend are integrated through a secure REST API with CORS configuration:
@@ -301,7 +411,7 @@ All main pages are integrated with real API calls:
 
 - **Dashboard**: Real-time statistics and recent activity with comprehensive monitoring
 - **Findings**: Security findings with filtering and pagination
-- **Events**: Security event stream with type categorization
+- **Events**: Security event stream with type categorization and comprehensive filtering
 - **Detections**: Detection rule management with seeding capability
 - **Health**: System health monitoring
 
