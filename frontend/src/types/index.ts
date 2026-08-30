@@ -87,6 +87,10 @@ export interface Event {
   raw_data: Record<string, any>;
   normalized_data?: Record<string, any>;
   finding_id?: string;
+  detection_id?: string;
+  ingestion_timestamp?: string;
+  message?: string;
+  metadata?: Record<string, any>;
 }
 
 export interface EventCreate {
@@ -187,6 +191,8 @@ export interface EventFilters extends PaginationParams {
   source?: string;
   start_time?: string;
   end_time?: string;
+  host?: string;
+  user?: string;
 }
 
 export interface AuditLogFilters extends PaginationParams {
