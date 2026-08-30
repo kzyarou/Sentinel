@@ -368,6 +368,43 @@ The backend includes CORS (Cross-Origin Resource Sharing) middleware to allow fr
 - `GET /api/v1/detections/event/{event_id}` - Retrieve detections for an event
   - Requires authentication
 
+### Detection Rule Management
+- `GET /api/v1/detection-rules` - List detection rules with filtering and pagination
+  - Requires authentication
+  - Query parameters: `page`, `page_size`, `category`, `severity`, `enabled`, `name`
+  - Returns: Paginated list of detection rules
+- `GET /api/v1/detection-rules/{rule_id}` - Retrieve a specific detection rule by ID
+  - Requires authentication
+  - Returns: Detection rule details
+- `GET /api/v1/detection-rules/by-name/{rule_name}` - Retrieve all versions of a rule by name
+  - Requires authentication
+  - Returns: List of rule versions
+- `POST /api/v1/detection-rules` - Create a new detection rule
+  - Requires authentication and ADMIN role
+  - Request body: Rule creation data (name, description, category, severity, version, enabled, rule_definition)
+  - Returns: Created detection rule
+- `PATCH /api/v1/detection-rules/{rule_id}` - Update an existing detection rule
+  - Requires authentication and ADMIN role
+  - Request body: Rule update data (name and version cannot be changed)
+  - Returns: Updated detection rule
+- `POST /api/v1/detection-rules/{rule_id}/enable` - Enable a detection rule
+  - Requires authentication and ADMIN role
+  - Returns: Updated detection rule with enabled=true
+- `POST /api/v1/detection-rules/{rule_id}/disable` - Disable a detection rule
+  - Requires authentication and ADMIN role
+  - Returns: Updated detection rule with enabled=false
+
+**Detection Rule Features:**
+- Versioning support (name + version uniqueness)
+- Enum-based categories (AUTHENTICATION, ACCESS_CONTROL, NETWORK, PROCESS, ENDPOINT, SYSTEM, OTHER)
+- Enum-based severities (LOW, MEDIUM, HIGH, CRITICAL)
+- Structured rule definition language with validation
+- Security constraints (no arbitrary code execution)
+- Comprehensive audit logging for sensitive operations
+- Authorization enforcement (analyst: read-only, admin: full management)
+
+For detailed documentation on detection rule management, see [docs/detection_rule_management.md](docs/detection_rule_management.md)
+
 ### AI Analysis
 - `POST /api/v1/findings/{finding_id}/analysis` - Trigger AI analysis for a finding
   - Request body: `{"force_refresh": boolean}` (optional)
