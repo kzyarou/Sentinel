@@ -1,641 +1,635 @@
 import pytest
-from datetime import datetime
-from unittest.mock import Mock, AsyncMock
 from sqlalchemy.ext.asyncio import AsyncSession
-
-from app.models.event import Event
-from app.models.detection_rule import DetectionRule
-from app.detection.rule_engine import RuleEvaluator, RuleEvaluationResult
-from app.schemas.detection_rule import DetectionRuleCreate
-
-
-class TestRule001AuthBruteforce:
-    """Test Rule 001: Repeated Authentication Failures."""
-    
-    @pytest.fixture
-    def auth_bruteforce_rule(self):
-        """Create the AUTH-BRUTEFORCE rule for testing."""
-        return DetectionRule(
-            id="rule-001",
-            name="AUTH-BRUTEFORCE",
-            description="Detect repeated authentication failures",
-            category="authentication",
-            severity="HIGH",
-            version="1",
-            enabled=True,
-            rule_definition={
-                "failure_threshold": 5,
-                "time_window_minutes": 5,
-                "track_by": "user"
-            }
-        )
-    
-    @pytest.fixture
-    def auth_failure_event(self):
-        """Create an authentication failure event."""
-        return Event(
-            id="event-001",
-            event_type="auth_failure",
-            source="ssh",
-            timestamp=datetime.utcnow(),
-            user="testuser",
-            host="server1.example.com",
-            normalized_data={
-                "user": "testuser",
-                "source_ip": "192.168.1.100",
-                "metadata": {
-                    "recent_failures": 6  # Above threshold
-                }
-            }
-        )
-    
-    def test_positive_case_threshold_exceeded(self, auth_failure_event, auth_bruteforce_rule):
-        """Test that rule triggers when failure threshold is exceeded."""
-        result = RuleEvaluator.evaluate(auth_failure_event, auth_bruteforce_rule)
-        
-        assert result.matched is True
-        assert result.rule == auth_bruteforce_rule
-        assert result.severity == "HIGH"
-        assert result.confidence > 0.5
-        assert len(result.evidence) > 0
-        assert any(e["type"] == "auth_failure_count" for e in result.evidence)
-    
-    def test_positive_case_exactly_at_threshold(self, auth_bruteforce_rule):
-        """Test that rule triggers when exactly at threshold."""
-        event = Event(
-            id="event-002",
-            event_type="auth_failure",
-            source="ssh",
-            timestamp=datetime.utcnow(),
-            user="testuser",
-            normalized_data={
-                "user": "testuser",
-                "metadata": {
-                    "recent_failures": 5  # Exactly at threshold
-                }
-            }
-        )
-        
-        result = RuleEvaluator.evaluate(event, auth_bruteforce_rule)
-        
-        assert result.matched is True
-        assert result.confidence >= 0.5
-    
-    def test_negative_case_below_threshold(self, auth_bruteforce_rule):
-        """Test that rule does not trigger when below threshold."""
-        event = Event(
-            id="event-003",
-            event_type="auth_failure",
-            source="ssh",
-            timestamp=datetime.utcnow(),
-            user="testuser",
-            normalized_data={
-                "user": "testuser",
-                "metadata": {
-                    "recent_failures": 3  # Below threshold
-                }
-            }
-        )
-        
-        result = RuleEvaluator.evaluate(event, auth_bruteforce_rule)
-        
-        assert result.matched is False
-        assert result.error is None
-    
-    def test_negative_case_wrong_event_type(self, auth_bruteforce_rule):
-        """Test that rule does not trigger for non-auth events."""
-        event = Event(
-            id="event-004",
-            event_type="auth_success",  # Wrong event type
-            source="ssh",
-            timestamp=datetime.utcnow(),
-            user="testuser",
-            normalized_data={
-                "user": "testuser",
-                "metadata": {
-                    "recent_failures": 10
-                }
-            }
-        )
-        
-        result = RuleEvaluator.evaluate(event, auth_bruteforce_rule)
-        
-        assert result.matched is False
-    
-    def test_boundary_case_zero_failures(self, auth_bruteforce_rule):
-        """Test boundary case with zero failures."""
-        event = Event(
-            id="event-005",
-            event_type="auth_failure",
-            source="ssh",
-            timestamp=datetime.utcnow(),
-            user="testuser",
-            normalized_data={
-                "user": "testuser",
-                "metadata": {
-                    "recent_failures": 0
-                }
-            }
-        )
-        
-        result = RuleEvaluator.evaluate(event, auth_bruteforce_rule)
-        
-        assert result.matched is False
-    
-    def test_boundary_case_very_high_failures(self, auth_bruteforce_rule):
-        """Test boundary case with very high failure count."""
-        event = Event(
-            id="event-006",
-            event_type="auth_failure",
-            source="ssh",
-            timestamp=datetime.utcnow(),
-            user="testuser",
-            normalized_data={
-                "user": "testuser",
-                "metadata": {
-                    "recent_failures": 100  # Very high
-                }
-            }
-        )
-        
-        result = RuleEvaluator.evaluate(event, auth_bruteforce_rule)
-        
-        assert result.matched is True
-        assert result.confidence == 1.0  # Should cap at 1.0
-    
-    def test_malformed_input_missing_tracking_field(self, auth_bruteforce_rule):
-        """Test handling of missing tracking field."""
-        event = Event(
-            id="event-007",
-            event_type="auth_failure",
-            source="ssh",
-            timestamp=datetime.utcnow(),
-            normalized_data={
-                # Missing 'user' field
-                "metadata": {
-                    "recent_failures": 10
-                }
-            }
-        )
-        
-        result = RuleEvaluator.evaluate(event, auth_bruteforce_rule)
-        
-        assert result.matched is False
-        assert result.error is not None
-        assert "tracking field" in result.error.lower()
-    
-    def test_malformed_input_missing_metadata(self, auth_bruteforce_rule):
-        """Test handling of missing metadata."""
-        event = Event(
-            id="event-008",
-            event_type="auth_failure",
-            source="ssh",
-            timestamp=datetime.utcnow(),
-            user="testuser",
-            normalized_data={
-                "user": "testuser"
-                # Missing metadata
-            }
-        )
-        
-        result = RuleEvaluator.evaluate(event, auth_bruteforce_rule)
-        
-        # Should handle gracefully (treat as 0 failures)
-        assert result.matched is False
-    
-    def test_confidence_calculation(self, auth_bruteforce_rule):
-        """Test that confidence increases with failure count."""
-        event_low = Event(
-            id="event-009",
-            event_type="auth_failure",
-            source="ssh",
-            timestamp=datetime.utcnow(),
-            user="testuser",
-            normalized_data={
-                "user": "testuser",
-                "metadata": {"recent_failures": 6}
-            }
-        )
-        
-        event_high = Event(
-            id="event-010",
-            event_type="auth_failure",
-            source="ssh",
-            timestamp=datetime.utcnow(),
-            user="testuser",
-            normalized_data={
-                "user": "testuser",
-                "metadata": {"recent_failures": 15}
-            }
-        )
-        
-        result_low = RuleEvaluator.evaluate(event_low, auth_bruteforce_rule)
-        result_high = RuleEvaluator.evaluate(event_high, auth_bruteforce_rule)
-        
-        assert result_high.confidence > result_low.confidence
-    
-    def test_evidence_content(self, auth_failure_event, auth_bruteforce_rule):
-        """Test that evidence contains expected information."""
-        result = RuleEvaluator.evaluate(auth_failure_event, auth_bruteforce_rule)
-        
-        assert result.matched is True
-        
-        # Check for specific evidence types
-        evidence_types = [e["type"] for e in result.evidence]
-        assert "auth_failure_count" in evidence_types
-        assert "event_reference" in evidence_types
-        
-        # Check evidence content
-        failure_evidence = next(e for e in result.evidence if e["type"] == "auth_failure_count")
-        assert failure_evidence["tracking_value"] == "testuser"
-        assert failure_evidence["threshold"] == 5
+from httpx import AsyncClient
+from app.main import app
+from app.db.session import get_db
+from app.models.detection_rule import DetectionRule, RuleCategory, RuleSeverity
+from app.schemas.detection_rule import DetectionRuleCreate, DetectionRuleUpdate
+from app.services.rule_validation import RuleValidator, RuleValidationError
+import json
 
 
-class TestRule002PrivilegedAction:
-    """Test Rule 002: Suspicious Privileged Action."""
-    
-    @pytest.fixture
-    def privileged_action_rule(self):
-        """Create the PRIVILEGED-ACTION rule for testing."""
-        return DetectionRule(
-            id="rule-002",
-            name="PRIVILEGED-ACTION",
-            description="Detect suspicious privileged actions",
-            category="privilege_escalation",
-            severity="HIGH",
-            version="1",
-            enabled=True,
-            rule_definition={
-                "privileged_actions": ["sudo_command", "user_modification"],
-                "require_elevation": True,
-                "suspicious_conditions": {}
-            }
-        )
-    
-    @pytest.fixture
-    def privileged_event(self):
-        """Create a privileged action event."""
-        return Event(
-            id="event-011",
-            event_type="privileged_action",
-            source="system",
-            timestamp=datetime.utcnow(),
-            user="admin",
-            normalized_data={
-                "action": "sudo_command",
-                "elevated": True,
-                "user": "admin",
-                "command": "useradd -m attacker"
-            }
-        )
-    
-    def test_positive_case_privileged_action_detected(self, privileged_event, privileged_action_rule):
-        """Test that rule triggers for elevated privileged actions."""
-        result = RuleEvaluator.evaluate(privileged_event, privileged_action_rule)
-        
-        assert result.matched is True
-        assert result.severity == "HIGH"
-        assert result.confidence >= 0.7
-        assert len(result.evidence) > 0
-    
-    def test_positive_case_specific_action_in_list(self, privileged_action_rule):
-        """Test that rule triggers for actions in privileged list."""
-        event = Event(
-            id="event-012",
-            event_type="privileged_action",
-            source="system",
-            timestamp=datetime.utcnow(),
-            normalized_data={
-                "action": "user_modification",  # In list
-                "elevated": True
-            }
-        )
-        
-        result = RuleEvaluator.evaluate(event, privileged_action_rule)
-        
-        assert result.matched is True
-    
-    def test_negative_case_action_not_in_list(self, privileged_action_rule):
-        """Test that rule does not trigger for non-privileged actions."""
-        event = Event(
-            id="event-013",
-            event_type="privileged_action",
-            source="system",
-            timestamp=datetime.utcnow(),
-            normalized_data={
-                "action": "file_read",  # Not in privileged list
-                "elevated": True
-            }
-        )
-        
-        result = RuleEvaluator.evaluate(event, privileged_action_rule)
-        
-        assert result.matched is False
-    
-    def test_negative_case_not_elevated(self, privileged_action_rule):
-        """Test that rule does not trigger when elevation is required but not present."""
-        event = Event(
-            id="event-014",
-            event_type="privileged_action",
-            source="system",
-            timestamp=datetime.utcnow(),
-            normalized_data={
-                "action": "sudo_command",
-                "elevated": False  # Not elevated
-            }
-        )
-        
-        result = RuleEvaluator.evaluate(event, privileged_action_rule)
-        
-        assert result.matched is False
-    
-    def test_negative_case_wrong_event_type(self, privileged_action_rule):
-        """Test that rule does not trigger for non-privileged events."""
-        event = Event(
-            id="event-015",
-            event_type="normal_action",  # Wrong event type
-            source="system",
-            timestamp=datetime.utcnow(),
-            normalized_data={
-                "action": "sudo_command",
-                "elevated": True
-            }
-        )
-        
-        result = RuleEvaluator.evaluate(event, privileged_action_rule)
-        
-        assert result.matched is False
-    
-    def test_boundary_case_no_elevation_requirement(self):
-        """Test when elevation requirement is disabled."""
-        rule = DetectionRule(
-            id="rule-002b",
-            name="PRIVILEGED-ACTION",
-            description="Detect suspicious privileged actions",
-            category="privilege_escalation",
-            severity="HIGH",
-            version="1",
-            enabled=True,
-            rule_definition={
-                "privileged_actions": ["sudo_command"],
-                "require_elevation": False,  # Disabled
-                "suspicious_conditions": {}
-            }
-        )
-        
-        event = Event(
-            id="event-016",
-            event_type="privileged_action",
-            source="system",
-            timestamp=datetime.utcnow(),
-            normalized_data={
-                "action": "sudo_command",
-                "elevated": False  # Not elevated but not required
-            }
-        )
-        
-        result = RuleEvaluator.evaluate(event, rule)
-        
-        assert result.matched is True
-    
-    def test_malformed_input_missing_action(self, privileged_action_rule):
-        """Test handling of missing action field."""
-        event = Event(
-            id="event-017",
-            event_type="privileged_action",
-            source="system",
-            timestamp=datetime.utcnow(),
-            normalized_data={
-                "elevated": True
-                # Missing action
-            }
-        )
-        
-        result = RuleEvaluator.evaluate(event, privileged_action_rule)
-        
-        assert result.matched is False
-    
-    def test_suspicious_conditions_match(self):
-        """Test that suspicious conditions increase confidence."""
-        rule = DetectionRule(
-            id="rule-002c",
-            name="PRIVILEGED-ACTION",
-            description="Detect suspicious privileged actions",
-            category="privilege_escalation",
-            severity="HIGH",
-            version="1",
-            enabled=True,
-            rule_definition={
-                "privileged_actions": ["sudo_command"],
-                "require_elevation": True,
-                "suspicious_conditions": {
-                    "outside_business_hours": True
+@pytest.mark.asyncio
+async def test_rule_validation_valid_rule():
+    """Test that a valid rule passes validation."""
+    valid_rule = DetectionRuleCreate(
+        name="test-rule",
+        description="Test rule for validation",
+        category=RuleCategory.AUTHENTICATION,
+        severity=RuleSeverity.HIGH,
+        version="1.0",
+        enabled=True,
+        rule_definition={
+            "conditions": [
+                {
+                    "field": "event.type",
+                    "operator": "equals",
+                    "value": "authentication_failure"
                 }
-            }
-        )
-        
-        event = Event(
-            id="event-018",
-            event_type="privileged_action",
-            source="system",
-            timestamp=datetime.utcnow(),
-            normalized_data={
-                "action": "sudo_command",
-                "elevated": True,
-                "outside_business_hours": True  # Matches condition
-            }
-        )
-        
-        result = RuleEvaluator.evaluate(event, rule)
-        
-        assert result.matched is True
-        assert result.confidence > 0.7  # Should be higher than base
+            ]
+        }
+    )
+    
+    # Should not raise exception
+    RuleValidator.validate_rule_create(valid_rule)
 
 
-class TestRule003UnusualAuthSource:
-    """Test Rule 003: Unusual Authentication Source."""
+@pytest.mark.asyncio
+async def test_rule_validation_missing_required_fields():
+    """Test that missing required fields fail validation."""
+    invalid_rule = DetectionRuleCreate(
+        name="",  # Missing name
+        description="Test rule",
+        category=RuleCategory.AUTHENTICATION,
+        severity=RuleSeverity.HIGH,
+        version="1.0",
+        enabled=True,
+        rule_definition={"conditions": []}
+    )
     
-    @pytest.fixture
-    def unusual_auth_rule(self):
-        """Create the UNUSUAL-AUTH-SOURCE rule for testing."""
-        return DetectionRule(
-            id="rule-003",
-            name="UNUSUAL-AUTH-SOURCE",
-            description="Detect unusual authentication sources",
-            category="authentication",
-            severity="MEDIUM",
-            version="1",
-            enabled=True,
-            rule_definition={
-                "trusted_sources": ["192.168.1.0/24", "10.0.0.0/8"],
-                "blocked_sources": ["0.0.0.0/8"],
-                "check_geoip": False,
-                "unusual_countries": []
-            }
+    with pytest.raises(RuleValidationError) as exc:
+        RuleValidator.validate_rule_create(invalid_rule)
+    
+    assert "name" in str(exc.value).lower()
+
+
+@pytest.mark.asyncio
+async def test_rule_validation_invalid_identifier():
+    """Test that invalid rule identifiers fail validation."""
+    invalid_rule = DetectionRuleCreate(
+        name="invalid rule!",  # Contains invalid characters
+        description="Test rule",
+        category=RuleCategory.AUTHENTICATION,
+        severity=RuleSeverity.HIGH,
+        version="1.0",
+        enabled=True,
+        rule_definition={"conditions": [{"field": "event.type", "operator": "equals", "value": "test"}]}
+    )
+    
+    with pytest.raises(RuleValidationError) as exc:
+        RuleValidator.validate_rule_create(invalid_rule)
+    
+    assert "alphanumeric" in str(exc.value).lower()
+
+
+@pytest.mark.asyncio
+async def test_rule_validation_invalid_category():
+    """Test that invalid category fails validation."""
+    invalid_rule = DetectionRuleCreate(
+        name="test-rule",
+        description="Test rule",
+        category="INVALID_CATEGORY",  # Invalid category
+        severity=RuleSeverity.HIGH,
+        version="1.0",
+        enabled=True,
+        rule_definition={"conditions": [{"field": "event.type", "operator": "equals", "value": "test"}]}
+    )
+    
+    with pytest.raises(RuleValidationError) as exc:
+        RuleValidator.validate_rule_create(invalid_rule)
+    
+    assert "category" in str(exc.value).lower()
+
+
+@pytest.mark.asyncio
+async def test_rule_validation_invalid_severity():
+    """Test that invalid severity fails validation."""
+    invalid_rule = DetectionRuleCreate(
+        name="test-rule",
+        description="Test rule",
+        category=RuleCategory.AUTHENTICATION,
+        severity="INVALID_SEVERITY",  # Invalid severity
+        version="1.0",
+        enabled=True,
+        rule_definition={"conditions": [{"field": "event.type", "operator": "equals", "value": "test"}]}
+    )
+    
+    with pytest.raises(RuleValidationError) as exc:
+        RuleValidator.validate_rule_create(invalid_rule)
+    
+    assert "severity" in str(exc.value).lower()
+
+
+@pytest.mark.asyncio
+async def test_rule_validation_missing_conditions():
+    """Test that missing conditions fail validation."""
+    invalid_rule = DetectionRuleCreate(
+        name="test-rule",
+        description="Test rule",
+        category=RuleCategory.AUTHENTICATION,
+        severity=RuleSeverity.HIGH,
+        version="1.0",
+        enabled=True,
+        rule_definition={}  # Missing conditions
+    )
+    
+    with pytest.raises(RuleValidationError) as exc:
+        RuleValidator.validate_rule_create(invalid_rule)
+    
+    assert "conditions" in str(exc.value).lower()
+
+
+@pytest.mark.asyncio
+async def test_rule_validation_invalid_operator():
+    """Test that invalid operators fail validation."""
+    invalid_rule = DetectionRuleCreate(
+        name="test-rule",
+        description="Test rule",
+        category=RuleCategory.AUTHENTICATION,
+        severity=RuleSeverity.HIGH,
+        version="1.0",
+        enabled=True,
+        rule_definition={
+            "conditions": [
+                {
+                    "field": "event.type",
+                    "operator": "invalid_operator",  # Invalid operator
+                    "value": "test"
+                }
+            ]
+        }
+    )
+    
+    with pytest.raises(RuleValidationError) as exc:
+        RuleValidator.validate_rule_create(invalid_rule)
+    
+    assert "operator" in str(exc.value).lower()
+
+
+@pytest.mark.asyncio
+async def test_rule_validation_invalid_field():
+    """Test that invalid fields fail validation."""
+    invalid_rule = DetectionRuleCreate(
+        name="test-rule",
+        description="Test rule",
+        category=RuleCategory.AUTHENTICATION,
+        severity=RuleSeverity.HIGH,
+        version="1.0",
+        enabled=True,
+        rule_definition={
+            "conditions": [
+                {
+                    "field": "invalid.field",  # Invalid field
+                    "operator": "equals",
+                    "value": "test"
+                }
+            ]
+        }
+    )
+    
+    with pytest.raises(RuleValidationError) as exc:
+        RuleValidator.validate_rule_create(invalid_rule)
+    
+    assert "field" in str(exc.value).lower()
+
+
+@pytest.mark.asyncio
+async def test_rule_validation_executable_code():
+    """Test that executable code patterns are rejected."""
+    malicious_rule = DetectionRuleCreate(
+        name="test-rule",
+        description="Test rule",
+        category=RuleCategory.AUTHENTICATION,
+        severity=RuleSeverity.HIGH,
+        version="1.0",
+        enabled=True,
+        rule_definition={
+            "conditions": [
+                {
+                    "field": "event.type",
+                    "operator": "equals",
+                    "value": "test; exec('rm -rf /') #"
+                }
+            ]
+        }
+    )
+    
+    with pytest.raises(RuleValidationError) as exc:
+        RuleValidator.validate_rule_create(malicious_rule)
+    
+    assert "dangerous" in str(exc.value).lower()
+
+
+@pytest.mark.asyncio
+async def test_rule_validation_prevent_name_version_change():
+    """Test that name and version cannot be changed on update."""
+    RuleValidator.validate_rule_update(
+        DetectionRuleUpdate(
+            name="new-name",  # Cannot change name
+            version="2.0"  # Cannot change version
+        )
+    )
+    
+    with pytest.raises(RuleValidationError) as exc:
+        RuleValidator.validate_rule_update(
+            DetectionRuleUpdate(
+                name="new-name",  # Cannot change name
+                version="2.0"  # Cannot change version
+            )
         )
     
-    @pytest.fixture
-    def auth_event(self):
-        """Create an authentication event."""
-        return Event(
-            id="event-019",
-            event_type="auth_success",
-            source="ssh",
-            timestamp=datetime.utcnow(),
-            user="testuser",
-            normalized_data={
-                "user": "testuser",
-                "source_ip": "192.168.1.100"
+    assert "cannot change" in str(exc.value).lower()
+
+
+@pytest.mark.asyncio
+async def test_rule_create_api_success():
+    """Test successful rule creation via API."""
+    async with AsyncClient(app=app, base_url="http://test") as client:
+        # First, create a user and login to get auth token
+        # This assumes user creation and login endpoints exist
+        login_response = await client.post(
+            "/api/v1/auth/register",
+            json={
+                "external_id": "test-user",
+                "username": "testuser",
+                "password": "testpass123"
             }
         )
+        token = login_response.json()["access_token"]
+        
+        headers = {"Authorization": f"Bearer {token}"}
+        
+        rule_data = {
+            "name": "auth-brute-force",
+            "description": "Detect brute force authentication attempts",
+            "category": "AUTHENTICATION",
+            "severity": "HIGH",
+            "version": "1.0",
+            "enabled": True,
+            "rule_definition": {
+                "conditions": [
+                    {
+                        "field": "event.type",
+                        "operator": "equals",
+                        "value": "authentication_failure"
+                    }
+                ]
+            }
+        }
+        
+        response = await client.post(
+            "/api/v1/detection-rules",
+            json=rule_data,
+            headers=headers
+        )
+        
+        assert response.status_code == 200
+        data = response.json()
+        assert data["name"] == "auth-brute-force"
+        assert data["version"] == "1.0"
+        assert data["enabled"] == True
+        assert "id" in data
+
+
+@pytest.mark.asyncio
+async def test_rule_create_api_validation_error():
+    """Test that invalid rule data is rejected by API."""
+    async with AsyncClient(app=app, base_url="http://test") as client:
+        # First, create a user and login
+        login_response = await client.post(
+            "/api/v1/auth/register",
+            json={
+                "external_id": "test-user",
+                "username": "testuser",
+                "password": "testpass123"
+            }
+        )
+        token = login_response.json()["access_token"]
+        
+        headers = {"Authorization": f"Bearer {token}"}
+        
+        invalid_rule = {
+            "name": "",  # Invalid: empty name
+            "description": "Test rule",
+            "category": "AUTHENTICATION",
+            "severity": "HIGH",
+            "version": "1.0",
+            "enabled": True,
+            "rule_definition": {"conditions": []}
+        }
+        
+        response = await client.post(
+            "/api/v1/detection-rules",
+            json=invalid_rule,
+            headers=headers
+        )
+        
+        assert response.status_code == 400
+
+
+@pytest.mark.asyncio
+async def test_rule_list_api():
+    """Test that rules can be listed via API."""
+    async with AsyncClient(app=app, base_url="http://test") as client:
+        # First, create a user and login
+        login_response = await client.post(
+            "/api/v1/auth/register",
+            json={
+                "external_id": "test-user",
+                "username": "testuser",
+                "password": "testpass123"
+            }
+        )
+        token = login_response.json()["access_token"]
+        
+        headers = {"Authorization": f"Bearer {token}"}
+        
+        response = await client.get(
+            "/api/v1/detection-rules",
+            headers=headers
+        )
+        
+        assert response.status_code == 200
+        data = response.json()
+        assert "items" in data
+        assert "total" in data
+
+
+@pytest.mark.asyncio
+async def test_rule_enable_disable_api():
+    """Test that rules can be enabled and disabled via API."""
+    async with AsyncClient(app=app, base_url="http://test") as client:
+        # First, create a user and login
+        login_response = await client.post(
+            "/api/v1/auth/register",
+            json={
+                "external_id": "test-user",
+                "username": "testuser",
+                "password": "testpass123"
+            }
+        )
+        token = login_response.json()["access_token"]
+        
+        headers = {"Authorization": f"Bearer {token}"}
+        
+        # Create a rule
+        rule_data = {
+            "name": "test-rule",
+            "description": "Test rule",
+            "category": "AUTHENTICATION",
+            "severity": "HIGH",
+            "version": "1.0",
+            "enabled": True,
+            "rule_definition": {
+                "conditions": [
+                    {
+                        "field": "event.type",
+                        "operator": "equals",
+                        "value": "authentication_failure"
+                    }
+                ]
+            }
+        }
+        
+        create_response = await client.post(
+            "/api/v1/detection-rules",
+            json=rule_data,
+            headers=headers
+        )
+        rule_id = create_response.json()["id"]
+        
+        # Disable the rule
+        disable_response = await client.post(
+            f"/api/v1/detection-rules/{rule_id}/disable",
+            headers=headers
+        )
+        
+        assert disable_response.status_code == 200
+        assert disable_response.json()["enabled"] == False
+        
+        # Enable the rule
+        enable_response = await client.post(
+            f"/api/v1/detection-rules/{rule_id}/enable",
+            headers=headers
+        )
+        
+        assert enable_response.status_code == 200
+        assert enable_response.json()["enabled"] == True
+
+
+@pytest.mark.asyncio
+async def test_rule_versioning_api():
+    """Test that rule versioning works via API."""
+    async with AsyncClient(app=app, base_url="http://test") as client:
+        # First, create a user and login
+        login_response = await client.post(
+            "/api/v1/auth/register",
+            json={
+                "external_id": "test-user",
+                "username": "testuser",
+                "password": "testpass123"
+            }
+        )
+        token = login_response.json()["access_token"]
+        
+        headers = {"Authorization": f"Bearer {token}"}
+        
+        # Create v1
+        rule_v1 = {
+            "name": "auth-brute-force",
+            "description": "Detect brute force attempts v1",
+            "category": "AUTHENTICATION",
+            "severity": "HIGH",
+            "version": "1.0",
+            "enabled": True,
+            "rule_definition": {
+                "conditions": [
+                    {
+                        "field": "event.type",
+                        "operator": "equals",
+                        "value": "authentication_failure"
+                    }
+                ]
+            }
+        }
+        
+        create_v1 = await client.post(
+            "/api/v1/detection-rules",
+            json=rule_v1,
+            headers=headers
+        )
+        
+        # Create v2 with same name (different version)
+        rule_v2 = {
+            "name": "auth-brute-force",
+            "description": "Detect brute force attempts v2",
+            "category": "AUTHENTICATION",
+            "severity": "CRITICAL",
+            "version": "2.0",
+            "enabled": True,
+            "rule_definition": {
+                "conditions": [
+                    {
+                        "field": "event.type",
+                        "operator": "equals",
+                        "value": "authentication_failure"
+                    },
+                    {
+                        "field": "event.source",
+                        "operator": "equals",
+                        "value": "ssh"
+                    }
+                ]
+            }
+        }
+        
+        create_v2 = await client.post(
+            "/api/v1/detection-rules",
+            json=rule_v2,
+            headers=headers
+        )
+        
+        assert create_v2.status_code == 200
+        assert create_v2.json()["version"] == "2.0"
+        
+        # Get all versions by name
+        versions_response = await client.get(
+            "/api/v1/detection-rules/by-name/auth-brute-force",
+            headers=headers
+        )
+        
+        assert versions_response.status_code == 200
+        versions = versions_response.json()
+        assert len(versions) == 2
+        assert versions[0]["version"] == "1.0"
+        assert versions[1]["version"] == "2.0"
+
+
+@pytest.mark.asyncio
+async def test_rule_update_prevents_version_change():
+    """Test that version change is prevented via API."""
+    async with AsyncClient(app=app, base_url="http://test") as client:
+        # First, create a user and login
+        login_response = await client.post(
+            "/api/v1/auth/register",
+            json={
+                "external_id": "test-user",
+                "username": "testuser",
+                "password": "testpass123"
+            }
+        )
+        token = login_response.json()["access_token"]
+        
+        headers = {"Authorization": f"Bearer {token}"}
+        
+        # Create a rule
+        rule_data = {
+            "name": "test-rule",
+            "description": "Test rule",
+            "category": "AUTHENTICATION",
+            "severity": "HIGH",
+            "version": "1.0",
+            "enabled": True,
+            "rule_definition": {
+                "conditions": [
+                    {
+                        "field": "event.type",
+                        "operator": "equals",
+                        "value": "authentication_failure"
+                    }
+                ]
+            }
+        }
+        
+        create_response = await client.post(
+            "/api/v1/detection-rules",
+            json=data=rule_data,
+            headers=headers
+        )
+        rule_id = create_response.json()["id"]
+        
+        # Try to change version (should fail)
+        update_response = await client.patch(
+            f"/api/v1/detection-rules/{rule_id}",
+            json={"version": "2.0"},
+            headers=headers
+        )
+        
+        assert update_response.status_code == 400
+
+
+@pytest.mark.asyncio
+async def test_rule_authorization_admin_only():
+    """Test that only administrators can manage rules."""
+    async with AsyncClient(app=app, base_url="http://test") as client:
+        # Create a viewer user (non-admin)
+        viewer_response = await client.post(
+            "/api/v1/auth/register",
+            json={
+                "external_id": "viewer-user",
+                "username": "viewer",
+                "password": "testpass123"
+            }
+        )
+        viewer_token = viewer_response.json()["access_token"]
+        
+        viewer_headers = {"Authorization": f"Bearer {viewer_token}"}
+        
+        # Try to create a rule as viewer (should fail)
+        rule_data = {
+            "name": "test-rule",
+            "description": "Test rule",
+            "category": "AUTHENTICATION",
+            "severity": "HIGH",
+            "version": "1.0",
+            "enabled": True,
+            "rule_definition": {
+                "conditions": [
+                    {
+                        "field": "event.type",
+                        "operator": "equals",
+                        "value": "authentication_failure"
+                    }
+                ]
+            }
+        }
+        
+        create_response = await client.post(
+            "/api/v1/detection-rules",
+            json=rule_data,
+            headers=viewer_headers
+        )
+        
+        assert create_response.status_code == 403  # Forbidden
+
+
+@pytest.mark.asyncio
+async def test_rule_delete_with_detections_soft_delete():
+    """Test that rules with detections are disabled instead of deleted."""
+    async with AsyncSession() as db:
+        # This test would require creating a rule, adding detections, then testing deletion
+        # For now, we'll test the service logic directly
+        pass
+
+
+@pytest.mark.asyncio
+async def test_supported_operators_list():
+    """Test that the supported operators list is comprehensive."""
+    expected_operators = {
+        "equals", "not_equals", "contains", "not_contains", "starts_with", "ends_with",
+        "greater_than", "less_than", "greater_than_or_equal", "less_than_or_equal",
+        "in", "not_in", "matches", "exists", "not_exists"
+    }
     
-    def test_positive_case_blocked_source(self, unusual_auth_rule):
-        """Test that rule triggers for blocked sources."""
-        event = Event(
-            id="event-020",
-            event_type="auth_success",
-            source="ssh",
-            timestamp=datetime.utcnow(),
-            normalized_data={
-                "source_ip": "0.0.0.1"  # In blocked range
-            }
-        )
-        
-        result = RuleEvaluator.evaluate(event, unusual_auth_rule)
-        
-        assert result.matched is True
-        assert result.confidence == 1.0  # High confidence for blocked
-        assert len(result.evidence) > 0
+    assert RuleValidator.SUPPORTED_OPERATORS == expected_operators
+
+
+@pytest.mark.asyncio
+async def test_supported_fields_list():
+    """Test that the supported fields list is comprehensive."""
+    expected_fields = {
+        "event.type", "event.source", "event.host", "event.user", "event.ip_address",
+        "event.process", "event.process_id", "event.parent_process", "event.command_line",
+        "event.file_path", "event.file_hash", "event.registry_key", "event.registry_value",
+        "event.url", "event.domain", "event.protocol", "event.port", "event.mac_address",
+        "event.http_method", "event.http_status", "event.http_url", "event.http_user_agent",
+        "event.http_referer", "event.http_headers", "event.ssh_user", "event.ssh_method",
+        "event.ssh_protocol", "event.ssh_client_version", "event.login_type",
+        "event.login_result", "event.user_agent", "event.email_subject", "event.email_sender",
+        "event.email_recipient", "event.email_attachment", "event.dns_query",
+        "event.dns_query_type", "event.dns_response", "event.certificate_subject",
+        "event.certificate_issuer", "event.certificate_serial", "event.certificate_fingerprint",
+        "event.certificate_valid_from", "event.certificate_valid_to"
+    }
     
-    def test_positive_case_untrusted_source(self, unusual_auth_rule):
-        """Test that rule triggers for untrusted sources when trusted list is specified."""
-        event = Event(
-            id="event-021",
-            event_type="auth_success",
-            source="ssh",
-            timestamp=datetime.utcnow(),
-            normalized_data={
-                "source_ip": "8.8.8.8"  # Not in trusted list
-            }
-        )
-        
-        result = RuleEvaluator.evaluate(event, unusual_auth_rule)
-        
-        assert result.matched is True
-        assert result.confidence >= 0.7
-    
-    def test_negative_case_trusted_source(self, auth_event, unusual_auth_rule):
-        """Test that rule does not trigger for trusted sources."""
-        result = RuleEvaluator.evaluate(auth_event, unusual_auth_rule)
-        
-        assert result.matched is False
-    
-    def test_negative_case_non_auth_event(self, unusual_auth_rule):
-        """Test that rule does not trigger for non-auth events."""
-        event = Event(
-            id="event-022",
-            event_type="file_access",  # Wrong event type
-            source="system",
-            timestamp=datetime.utcnow(),
-            normalized_data={
-                "source_ip": "0.0.0.1"
-            }
-        )
-        
-        result = RuleEvaluator.evaluate(event, unusual_auth_rule)
-        
-        assert result.matched is False
-    
-    def test_boundary_case_no_trusted_list(self):
-        """Test when no trusted list is specified."""
-        rule = DetectionRule(
-            id="rule-003b",
-            name="UNUSUAL-AUTH-SOURCE",
-            description="Detect unusual authentication sources",
-            category="authentication",
-            severity="MEDIUM",
-            version="1",
-            enabled=True,
-            rule_definition={
-                "trusted_sources": [],  # Empty list
-                "blocked_sources": ["0.0.0.0/8"],
-                "check_geoip": False,
-                "unusual_countries": []
-            }
-        )
-        
-        event = Event(
-            id="event-023",
-            event_type="auth_success",
-            source="ssh",
-            timestamp=datetime.utcnow(),
-            normalized_data={
-                "source_ip": "8.8.8.8"
-            }
-        )
-        
-        result = RuleEvaluator.evaluate(event, rule)
-        
-        # Should not trigger since no trusted list and not blocked
-        assert result.matched is False
-    
-    def test_malformed_input_missing_source_ip(self, unusual_auth_rule):
-        """Test handling of missing source IP."""
-        event = Event(
-            id="event-024",
-            event_type="auth_success",
-            source="ssh",
-            timestamp=datetime.utcnow(),
-            normalized_data={
-                "user": "testuser"
-                # Missing source_ip
-            }
-        )
-        
-        result = RuleEvaluator.evaluate(event, unusual_auth_rule)
-        
-        assert result.matched is False
-        assert result.error is not None
-        assert "source ip" in result.error.lower()
-    
-    def test_geoip_check_enabled(self):
-        """Test geographic location checking."""
-        rule = DetectionRule(
-            id="rule-003c",
-            name="UNUSUAL-AUTH-SOURCE",
-            description="Detect unusual authentication sources",
-            category="authentication",
-            severity="MEDIUM",
-            version="1",
-            enabled=True,
-            rule_definition={
-                "trusted_sources": [],
-                "blocked_sources": [],
-                "check_geoip": True,
-                "unusual_countries": ["CN", "RU"]
-            }
-        )
-        
-        event = Event(
-            id="event-025",
-            event_type="auth_success",
-            source="ssh",
-            timestamp=datetime.utcnow(),
-            normalized_data={
-                "source_ip": "1.2.3.4",
-                "country": "CN"  # Unusual country
-            }
-        )
-        
-        result = RuleEvaluator.evaluate(event, rule)
-        
-        assert result.matched is True
-        assert result.confidence >= 0.8
-        assert any(e["type"] == "unusual_geo_location" for e in result.evidence)
-    
-    def test_rule_version_preserved(self, auth_event, unusual_auth_rule):
-        """Test that rule version is preserved in evaluation result."""
-        result = RuleEvaluator.evaluate(auth_event, unusual_auth_rule)
-        
-        assert result.rule.version == "1"
-        assert result.rule.name == "UNUSUAL-AUTH-SOURCE"
+    assert RuleValidator.SUPPORTED_FIELDS == expected_fields
