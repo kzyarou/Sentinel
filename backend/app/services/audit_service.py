@@ -97,11 +97,270 @@ class AuditService:
                 sanitized[key] = "[REDACTED]"
             elif isinstance(value, str) and len(value) > 1000:
                 # Truncate very long strings
+                sanitized[key] = value[:1000] + "... (truncated)"
+        else:
+            sanitized[key] = value
+        
+        return sanitized
+    
+    async def log_detection_rule_created(
+        self,
+        rule_id: str,
+        rule_name: str,
+        rule_version: str,
+        user_id: Optional[str] = None,
+        request_id: Optional[str] = None
+    ) -> AuditLog:
+        """Log detection rule creation."""
+        return await self.create_audit_log(
+            db=self.db,
+            user_id=user_id,
+            action="detection_rule.created",
+            action_category=AuditActionCategory.DETECTION_RULE,
+            resource_type="detection_rule",
+            resource_id=rule_id,
+            request_id=request_id,
+            metadata={
+                "rule_name": rule_name,
+                "rule_version": rule_version
+            }
+        )
+    
+    async def log_detection_rule_updated(
+        self,
+        rule_id: str,
+        rule_name: str,
+        rule_version: str,
+        changes: List[str],
+        user_id: Optional[str] = None,
+        request_id: Optional[str] = None
+    ) -> AuditLog:
+        """Log detection rule update."""
+        return await self.create_audit_log(
+            db=self.db,
+            user_id=user_id,
+            action="detection_rule.updated",
+            action_category=AuditActionCategory.DETECTION_RULE,
+            resource_type="detection_rule",
+            resource_id=rule_id,
+            request_id=request_id,
+            metadata={
+                "rule_name": rule_name,
+                "rule_version": rule_version,
+                "changes": changes
+            }
+        )
+    
+    async def log_detection_rule_enabled(
+        self,
+        rule_id: str,
+        rule_name: str,
+        rule_version: str,
+        user_id: Optional[str] = None,
+        request_id: Optional[str] = None,
+        reason: Optional[str] = None
+    ) -> AuditLog:
+        """Log detection rule enable."""
+        metadata = {
+            "rule_name": rule_name,
+            "rule_version": rule_version
+        }
+        if reason:
+            metadata["reason"] = reason
+        
+        return await self.create_audit_log(
+            db=self.db,
+            user_id=user_id,
+            action="detection_rule.enabled",
+            action_category=AuditActionCategory.DETECTION_RULE,
+            resource_type="detection_rule",
+            resource_id=rule_id,
+            request_id=request_id,
+            metadata=metadata
+        )
+    
+    async def log_detection_rule_disabled(
+        self,
+        rule_id: str,
+        rule_name: str,
+        rule_version: str,
+        user_id: Optional[str] = None,
+        request_id: Optional[str] = None,
+        reason: Optional[str] = None
+    ) -> AuditLog:
+        """Log detection rule disable."""
+        metadata = {
+            "rule_name": rule_name,
+            "rule_version": rule_version
+        }
+        if reason:
+            metadata["reason"] = reason
+        
+        return await self.create_audit_log(
+            db=self.db,
+            user_id=user_id,
+            action="detection_rule.disabled",
+            action_category=AuditActionCategory.DETECTION_RULE,
+            resource_type="detection_rule",
+            resource_id=rule_id,
+            request_id=request_id,
+            metadata=metadata
+        )
+    
+    async def log_detection_rule_deleted(
+        self,
+        rule_id: str,
+        rule_name: str,
+        rule_version: str,
+        user_id: Optional[str] = None,
+        request_id: Optional[str] = None
+    ) -> AuditLog:
+        """Log detection rule deletion."""
+        return await self.create_audit_log(
+            db=self.db,
+            user_id=user_id,
+            action="detection_rule.deleted",
+            action_category=AuditActionCategory.DETECTION_RULE,
+            resource_type="detection_rule",
+            resource_id=rule_id,
+            request_id=request_id,
+            metadata={
+                "rule_name": rule_name,
+                "rule_version": rule_version
+            }
+        )
                 sanitized[key] = value[:1000] + "... [TRUNCATED]"
             else:
                 sanitized[key] = value
         
         return sanitized
+    
+    async def log_detection_rule_created(
+        self,
+        rule_id: str,
+        rule_name: str,
+        rule_version: str,
+        user_id: Optional[str] = None,
+        request_id: Optional[str] = None
+    ) -> AuditLog:
+        """Log detection rule creation."""
+        return await self.create_audit_log(
+            db=self.db,
+            user_id=user_id,
+            action="detection_rule.created",
+            action_category=AuditActionCategory.DETECTION_RULE,
+            resource_type="detection_rule",
+            resource_id=rule_id,
+            request_id=request_id,
+            metadata={
+                "rule_name": rule_name,
+                "rule_version": rule_version
+            }
+        )
+    
+    async def log_detection_rule_updated(
+        self,
+        rule_id: str,
+        rule_name: str,
+        rule_version: str,
+        changes: List[str],
+        user_id: Optional[str] = None,
+        request_id: Optional[str] = None
+    ) -> AuditLog:
+        """Log detection rule update."""
+        return await self.create_audit_log(
+            db=self.db,
+            user_id=user_id,
+            action="detection_rule.updated",
+            action_category=AuditActionCategory.DETECTION_RULE,
+            resource_type="detection_rule",
+            resource_id=rule_id,
+            request_id=request_id,
+            metadata={
+                "rule_name": rule_name,
+                "rule_version": rule_version,
+                "changes": changes
+            }
+        )
+    
+    async def log_detection_rule_enabled(
+        self,
+        rule_id: str,
+        rule_name: str,
+        rule_version: str,
+        user_id: Optional[str] = None,
+        request_id: Optional[str] = None,
+        reason: Optional[str] = None
+    ) -> AuditLog:
+        """Log detection rule enable."""
+        metadata = {
+            "rule_name": rule_name,
+            "rule_version": rule_version
+        }
+        if reason:
+            metadata["reason"] = reason
+        
+        return await self.create_audit_log(
+            db=self.db,
+            user_id=user_id,
+            action="detection_rule.enabled",
+            action_category=AuditActionCategory.DETECTION_RULE,
+            resource_type="detection_rule",
+            resource_id=rule_id,
+            request_id=request_id,
+            metadata=metadata
+        )
+    
+    async def log_detection_rule_disabled(
+        self,
+        rule_id: str,
+        rule_name: str,
+        rule_version: str,
+        user_id: Optional[str] = None,
+        request_id: Optional[str] = None,
+        reason: Optional[str] = None
+    ) -> AuditLog:
+        """Log detection rule disable."""
+        metadata = {
+            "rule_name": rule_name,
+            "rule_version": rule_version
+        }
+        if reason:
+            metadata["reason"] = reason
+        
+        return await self.create_audit_log(
+            db=self.db,
+            user_id=user_id,
+            action="detection_rule.disabled",
+            action_category=AuditActionCategory.DETECTION_RULE,
+            resource_type="detection_rule",
+            resource_id=rule_id,
+            request_id=request_id,
+            metadata=metadata
+        )
+    
+    async def log_detection_rule_deleted(
+        self,
+        rule_id: str,
+        rule_name: str,
+        rule_version: str,
+        user_id: Optional[str] = None,
+        request_id: Optional[str] = None
+    ) -> AuditLog:
+        """Log detection rule deletion."""
+        return await self.create_audit_log(
+            db=self.db,
+            user_id=user_id,
+            action="detection_rule.deleted",
+            action_category=AuditActionCategory.DETECTION_RULE,
+            resource_type="detection_rule",
+            resource_id=rule_id,
+            request_id=request_id,
+            metadata={
+                "rule_name": rule_name,
+                "rule_version": rule_version
+            }
+        )
     
     @staticmethod
     async def create_audit_log_critical(
