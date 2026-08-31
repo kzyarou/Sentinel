@@ -27,10 +27,10 @@ sentinel/
 ├── frontend/         # Web interface (Next.js)
 ├── docs/             # Architecture documentation and ADRs
 ├── tests/            # Automated tests
-├── infrastructure/   # Docker and deployment configurations
+├── .env.example      # Environment configuration template
 ├── .gitignore
-├── README.md
-└── docker-compose.yml
+├── docker-compose.yml # Docker Compose configuration
+└── README.md
 ```
 
 ## Architecture
@@ -49,17 +49,97 @@ The system is composed of the following core components:
 
 ## Getting Started
 
-### Backend
+### Docker (Recommended)
+
+The quickest way to get started is using Docker Compose, which provides a complete development environment with all required services.
+
+**Prerequisites:**
+- Docker (version 20.10 or higher)
+- Docker Compose (version 2.0 or higher)
+
+**Quick Start:**
+
+1. Clone the repository:
+```bash
+git clone https://github.com/kzyarou/Sentinel.git
+cd Sentinel
+```
+
+2. Configure environment variables:
+```bash
+cp .env.example .env
+# Edit .env with your configuration if needed
+```
+
+3. Start the development stack:
+```bash
+docker compose up -d
+```
+
+4. Wait for services to be healthy:
+```bash
+docker compose ps
+```
+
+5. Access the application:
+- Frontend: http://localhost:3000
+- Backend API: http://localhost:8000
+- API Documentation: http://localhost:8000/docs
+
+**Common Commands:**
+
+```bash
+# View logs
+docker compose logs -f
+
+# Stop services
+docker compose down
+
+# Restart services
+docker compose restart
+
+# Rebuild services
+docker compose up -d --build
+```
+
+For detailed Docker documentation, see [docs/docker-setup.md](docs/docker-setup.md).
+
+### Manual Setup
+
+If you prefer to set up the development environment manually without Docker:
+
+#### Backend
 
 The backend uses FastAPI with PostgreSQL. See `backend/README.md` for detailed setup instructions.
 
-### Frontend
+#### Frontend
 
 The frontend uses Next.js with TypeScript. See `frontend/README.md` for detailed setup instructions.
 
-### Docker
+## Docker Services
 
-This project uses Docker for reproducible development environments. See `docker-compose.yml` for service definitions.
+The Docker Compose configuration provides the following services:
+
+### PostgreSQL
+- **Image**: postgres:15-alpine
+- **Purpose**: Database server for application data
+- **Network**: Internal only (not exposed to host)
+- **Persistence**: Uses Docker volume for data persistence
+- **Health Check**: Monitors database readiness
+
+### Backend
+- **Technology**: FastAPI
+- **Port**: 8000 (exposed to host)
+- **Purpose**: REST API backend with detection engine
+- **Features**: Auto-reload for development, health monitoring
+- **Dependencies**: Waits for PostgreSQL to be healthy
+
+### Frontend
+- **Technology**: Next.js
+- **Port**: 3000 (exposed to host)
+- **Purpose**: Web interface for monitoring and investigation
+- **Features**: Hot reload for development, health monitoring
+- **Dependencies**: Waits for backend to be healthy
 
 ## Security Dashboard
 
