@@ -222,6 +222,74 @@ docker compose exec postgres pg_dump -U sentinel sentinel > backup.sql
 docker compose exec -T postgres psql -U sentinel sentinel < backup.sql
 ```
 
+## Validation and Testing
+
+The Docker configuration has been validated for:
+
+- **YAML Syntax**: Docker Compose file follows valid YAML structure
+- **Service Configuration**: All services have required fields and valid settings
+- **Network Configuration**: Network and volume definitions are properly structured
+- **Environment Variables**: All variables have safe defaults via .env.example
+- **Health Checks**: Health checks are properly configured for all services
+- **Dependencies**: Service dependencies are correctly defined
+
+### Manual Testing Checklist
+
+When Docker is available, verify the following:
+
+1. **All required containers start successfully**
+   ```bash
+   docker compose up -d
+   docker compose ps
+   ```
+
+2. **PostgreSQL becomes healthy**
+   ```bash
+   docker compose ps postgres
+   # Should show "healthy" status
+   ```
+
+3. **Backend can connect to PostgreSQL**
+   ```bash
+   docker compose logs backend
+   # Should show successful database connection
+   ```
+
+4. **Frontend can communicate with backend**
+   ```bash
+   docker compose logs frontend
+   # Should show successful backend communication
+   ```
+
+5. **Database data persists across container restarts**
+   ```bash
+   docker compose restart postgres
+   # Data should be preserved
+   ```
+
+6. **Environment variables are loaded correctly**
+   ```bash
+   docker compose exec backend env | grep DATABASE_URL
+   # Should show the configured DATABASE_URL
+   ```
+
+7. **Services fail gracefully when dependencies are unavailable**
+   ```bash
+   docker compose stop postgres
+   docker compose ps backend
+   # Backend should show unhealthy status
+   ```
+
+8. **Hot reload works for development**
+   ```bash
+   # Make a code change in backend/app/main.py
+   # Backend should automatically reload
+   docker compose logs backend
+   # Should show reload events
+   ```
+
+Note: Docker is not available in the current development environment, so actual container testing was not performed. The configuration has been validated for syntax and structure, but runtime testing requires Docker to be installed.
+
 ## Troubleshooting
 
 ### Services Not Starting
